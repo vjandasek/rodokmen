@@ -1,7 +1,7 @@
 import './style.css';
 import { buildTree, walk, type FamilyFile, type TreeNode } from './model.ts';
 import { defaultOptions, layoutTree, type Bounds, type Layout } from './layout.ts';
-import { countPeople, renderScene, smallestNameSize, type Measure } from './render.ts';
+import { countPeople, renderScene, smallestNameSize, type Measure, type RenderOptions } from './render.ts';
 import { PanZoom } from './panzoom.ts';
 import { FONT, loadFonts } from './fonts.ts';
 import { Panel } from './panel.ts';
@@ -16,6 +16,7 @@ const message = document.querySelector<HTMLElement>('#message')!;
 const panelElement = document.querySelector<HTMLElement>('#panel')!;
 const panelToggle = document.querySelector<HTMLButtonElement>('#panel-toggle')!;
 const hint = document.querySelector<HTMLElement>('#hint')!;
+const pdfButton = document.querySelector<HTMLButtonElement>('#pdf')!;
 
 /**
  * Developer mode (`?dev` in the address, read once at load): parameter panel, stats line and
@@ -54,6 +55,8 @@ const measure = measureIn(FONT.family);
 
 let tree: TreeNode | null = null;
 let bounds: Bounds = { minX: -1, minY: -1, maxX: 1, maxY: 1 };
+/** What is on screen: the drawn layout and how it was drawn (the PDF export draws the same). */
+let drawing: { layout: Layout; ro: RenderOptions } | null = null;
 /** The last computed layout and the panel options it was computed from (JSON). */
 let solved: { layout: Layout; key: string } | null = null;
 
@@ -107,15 +110,16 @@ function render(fit: boolean) {
   const layout = clearLines(separateBoxes(drawn), look);
   // Overlaps are a developer aid: outlined and counted only with ?dev.
   const overlaps = DEV ? findOverlapping(layout) : null;
-  scene.innerHTML = renderScene(layout, {
+  const ro: RenderOptions = {
     measure,
     fontFamily: FONT.family,
     boldWeight: FONT.bold,
     normalWeight: FONT.normal,
     minLineWidth: look.minLineWidth,
     maxLineWidth: look.maxLineWidth,
-    overlapping: overlaps?.boxes,
-  });
+  };
+  scene.innerHTML = renderScene(layout, { ...ro, overlapping: overlaps?.boxes });
+  drawing = { layout, ro };
   const ms = performance.now() - t0;
   bounds = layout.bounds;
   panZoom.setBounds(bounds);
@@ -276,6 +280,26 @@ window.addEventListener('keydown', (e) => {
   if (!action) return;
   e.preventDefault();
   action();
+});
+
+/**
+ * "Uložit PDF": the tree as on screen (whole, not just the view) saved as a poster PDF. The PDF
+ * code and its fonts load only now (pdf.ts), which takes a moment: the button says so meanwhile.
+ */
+pdfButton.addEventListener('click', async () => {
+  if (!drawing || pdfButton.disabled) return;
+  const label = pdfButton.textContent;
+  pdfButton.disabled = true;
+  pdfButton.textContent = 'Připravuji PDF…';
+  try {
+    const { downloadPdf } = await import('./pdf.ts');
+    await downloadPdf(drawing.layout, drawing.ro);
+  } catch (e) {
+    showMessage(`PDF se nepodařilo vytvořit (${(e as Error).message}).`);
+  } finally {
+    pdfButton.disabled = false;
+    pdfButton.textContent = label;
+  }
 });
 
 load();

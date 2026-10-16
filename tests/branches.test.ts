@@ -123,13 +123,10 @@ function contrast(a: number[], b: number[]): number {
   return (x + 0.05) / (y + 0.05);
 }
 
-function hsl(css: string): number[] {
-  const [h, s, l] = css.match(/[\d.]+/g)!.map(Number);
-  const sat = s / 100;
-  const light = l / 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = sat * Math.min(light, 1 - light);
-  return [0, 8, 4].map((n) => light - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)));
+/** A #rrggbb colour as 0..1 channels. */
+function rgb(hex: string): number[] {
+  expect(hex).toMatch(/^#[0-9a-f]{6}$/);
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
 }
 
 describe('box colours', () => {
@@ -137,8 +134,8 @@ describe('box colours', () => {
     for (const maxLevel of [1, 3, 5, 8]) {
       for (let level = 0; level <= maxLevel; level++) {
         const c = levelColors(level, maxLevel);
-        expect(contrast(hsl(c.fill), [1, 1, 1])).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(hsl(c.deceasedFill), [0x11 / 255, 0x11 / 255, 0x11 / 255])).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(rgb(c.fill), [1, 1, 1])).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(rgb(c.deceasedFill), [0x11 / 255, 0x11 / 255, 0x11 / 255])).toBeGreaterThanOrEqual(4.5);
       }
     }
   });

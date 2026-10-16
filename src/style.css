@@ -75,6 +75,15 @@ button {
   font-weight: 700;
 }
 
+/* Right in the header; in dev mode the stats line before it takes the free space instead. */
+body:not(.dev) #pdf {
+  margin-left: auto;
+}
+
+#pdf:disabled {
+  cursor: progress;
+}
+
 #panel-toggle[aria-expanded='true'] {
   background: var(--bg);
 }
@@ -415,6 +424,12 @@ main {
 
   body:not(.dev) h1 {
     font-size: 16px;
+  }
+
+  /* The title label lets touches through to the tree; its button must still work. */
+  body:not(.dev) #pdf {
+    pointer-events: auto;
+    margin-left: 0;
   }
 
   /* Below the title, away from the buttons at the bottom. */

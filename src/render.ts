@@ -16,6 +16,12 @@ export interface RenderOptions {
   /** Font weights of blood relatives (default 700) and partners (default 400). */
   boldWeight?: number;
   normalWeight?: number;
+  /**
+   * For outputs that place `dominant-baseline="central"` differently from browsers (the PDF
+   * export): names are drawn on their alphabetic baseline instead, this many font sizes below
+   * the line they are centred on. Omitted: `dominant-baseline="central"` (screen).
+   */
+  centralBaseline?: number;
 }
 
 /** Colour of the branches (warm bark brown, lighter than the former #6b4a2e). */
@@ -109,11 +115,13 @@ function renderCellText(
   const lineHeight = size * LINE_FACTOR;
   const color = person.living ? '#ffffff' : '#111111';
   const style = `font-size="${f(size)}" font-weight="${weight}"`;
+  const shift = ro.centralBaseline === undefined ? 0 : ro.centralBaseline * size;
+  const baseline = ro.centralBaseline === undefined ? ' dominant-baseline="central"' : '';
   const tspans = line2
-    ? `<tspan x="${f(cx)}" y="${f(cy - lineHeight / 2)}">${escapeXml(line1)}</tspan>` +
-      `<tspan x="${f(cx)}" y="${f(cy + lineHeight / 2)}">${escapeXml(line2)}</tspan>`
-    : `<tspan x="${f(cx)}" y="${f(cy)}">${escapeXml(line1)}</tspan>`;
-  return `<text text-anchor="middle" dominant-baseline="central" fill="${color}" ${style}>${tspans}</text>`;
+    ? `<tspan x="${f(cx)}" y="${f(cy - lineHeight / 2 + shift)}">${escapeXml(line1)}</tspan>` +
+      `<tspan x="${f(cx)}" y="${f(cy + lineHeight / 2 + shift)}">${escapeXml(line2)}</tspan>`
+    : `<tspan x="${f(cx)}" y="${f(cy + shift)}">${escapeXml(line1)}</tspan>`;
+  return `<text text-anchor="middle"${baseline} fill="${color}" ${style}>${tspans}</text>`;
 }
 
 interface CellText {
@@ -164,10 +172,21 @@ export function levelColors(level: number, maxLevel: number): { fill: string; st
   const t = maxLevel === 0 ? 0 : level / maxLevel;
   const lightness = 20 + t * 14;
   return {
-    fill: `hsl(140 45% ${f(lightness)}%)`,
-    stroke: `hsl(140 40% ${f(Math.max(lightness - 12, 10))}%)`,
-    deceasedFill: `hsl(140 12% ${f(72 + t * 10)}%)`,
+    fill: hslHex(140, 45, lightness),
+    stroke: hslHex(140, 40, Math.max(lightness - 12, 10)),
+    deceasedFill: hslHex(140, 12, 72 + t * 10),
   };
+}
+
+/** An HSL colour (degrees, %, %) as #rrggbb: the PDF export (svg2pdf.js) does not read hsl(). */
+function hslHex(h: number, s: number, l: number): string {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const channel = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const v = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(v * 255).toString(16).padStart(2, '0');
+  };
+  return `#${channel(0)}${channel(8)}${channel(4)}`;
 }
 
 function f(n: number): string {
