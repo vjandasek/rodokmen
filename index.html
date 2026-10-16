@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Rodokmen</title>
+  </head>
+  <body>
+    <header>
+      <h1>Rodokmen</h1>
+      <!-- Developer mode only (?dev): main.ts shows these. -->
+      <span id="stats" hidden></span>
+      <button id="panel-toggle" aria-controls="panel" aria-expanded="false" title="Zobrazit/skrýt parametry" hidden>Parametry</button>
+    </header>
+    <main>
+      <div class="stage">
+        <svg id="view" xmlns="http://www.w3.org/2000/svg"><g id="scene"></g></svg>
+        <p id="message" hidden></p>
+        <!-- Normal view only: main.ts shows it once and fades it out. -->
+        <p id="hint" role="status" hidden>Strom posunete tažením myší nebo prstem. Přibližte tlačítky + a −.</p>
+        <!-- Arrow pad around "Celý strom" (fit), then + / − in a column to its right. -->
+        <div id="controls" role="group" aria-label="Ovládání pohledu">
+          <button id="pan-up" class="control-button" title="Posunout nahoru (šipka nahoru)" aria-label="Posunout nahoru">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
+          </button>
+          <button id="pan-left" class="control-button" title="Posunout doleva (šipka doleva)" aria-label="Posunout doleva">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+          </button>
+          <button id="fit" class="control-button" title="Celý strom (0)" aria-label="Celý strom">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4" /></svg>
+          </button>
+          <button id="pan-right" class="control-button" title="Posunout doprava (šipka doprava)" aria-label="Posunout doprava">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+          <button id="pan-down" class="control-button" title="Posunout dolů (šipka dolů)" aria-label="Posunout dolů">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
+          </button>
+          <button id="zoom-in" class="control-button" title="Přiblížit (+)" aria-label="Přiblížit">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+          <button id="zoom-out" class="control-button" title="Oddálit (−)" aria-label="Oddálit">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+          </button>
+        </div>
+      </div>
+      <aside id="panel" aria-label="Parametry rozložení" hidden></aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

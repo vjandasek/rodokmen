@@ -1,0 +1,8 @@
+# Real family data — never commit
+data/
+
+node_modules/
+dist/
+
+# Local working notes for Claude sessions — never commit
+HANDOFF.md
