@@ -20,6 +20,12 @@ export interface Person {
   parentNotBlood: number | null;
   /** Only filled on the blood-related side of a partnership. */
   partners: PartnerRef[];
+  /** Details from the legacy DB (format version 2); dates strictly 'dd.mm.yyyy'. Not drawn yet. */
+  title?: string | null;
+  bornDate?: string | null;
+  bornPlace?: string | null;
+  deathDate?: string | null;
+  deathPlace?: string | null;
 }
 
 export interface FamilyFile {

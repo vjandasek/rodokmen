@@ -84,6 +84,149 @@ body:not(.dev) #pdf {
   cursor: progress;
 }
 
+#save-data:disabled {
+  cursor: progress;
+}
+
+/* Developer mode: right clicks hit the person's cell rect (data-person), not the text or outlines over it. */
+body.dev #scene .boxes text,
+body.dev #scene .boxes line,
+body.dev #scene .boxes rect[fill='none'] {
+  pointer-events: none;
+}
+
+/* Developer mode editing (editor.ts): the context menu on a person and the dialogs. */
+.context-menu {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 18%);
+  font-size: 14px;
+}
+
+.menu-heading {
+  padding: 6px 10px 4px;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.context-menu button {
+  border: none;
+  border-radius: 4px;
+  padding: 7px 10px;
+  text-align: left;
+  background: none;
+}
+
+.context-menu button:hover:not(:disabled),
+.context-menu button:focus-visible {
+  background: var(--bg);
+  outline: none;
+}
+
+.context-menu button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.edit-dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.edit-dialog::backdrop {
+  background: rgb(0 0 0 / 30%);
+}
+
+.edit-dialog h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.edit-dialog .fields {
+  display: grid;
+  gap: 6px;
+}
+
+.edit-dialog .field {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-dialog .field.check {
+  display: flex;
+  gap: 8px;
+  padding-left: 138px;
+}
+
+.edit-dialog input[type='text'] {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 0;
+}
+
+.edit-dialog input[type='checkbox'] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.edit-dialog ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.dialog-error {
+  margin: 12px 0 0;
+  color: #c01c1c;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.dialog-buttons .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.dialog-buttons .danger {
+  background: #c01c1c;
+  border-color: #c01c1c;
+}
+
+@media (max-width: 480px) {
+  .edit-dialog .field {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .edit-dialog .field.check {
+    padding-left: 0;
+  }
+}
+
 #panel-toggle[aria-expanded='true'] {
   background: var(--bg);
 }

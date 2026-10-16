@@ -85,9 +85,10 @@ function renderBox(p: PlacedNode, maxLevel: number, ro: RenderOptions): string {
     x: p.stacked ? x0 : x0 + i * W,
     y: p.stacked ? y0 + i * H : y0,
   }));
+  // data-person: hit-testing for the developer-mode context menu (editor.ts); ignored by the PDF.
   for (const c of cells) {
     out.push(
-      `<rect x="${f(c.x)}" y="${f(c.y)}" width="${f(W)}" height="${f(H)}" fill="${c.person.living ? colors.fill : colors.deceasedFill}"/>`,
+      `<rect data-person="${c.person.id}" x="${f(c.x)}" y="${f(c.y)}" width="${f(W)}" height="${f(H)}" fill="${c.person.living ? colors.fill : colors.deceasedFill}"/>`,
     );
   }
   out.push('</g>');

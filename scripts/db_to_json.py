@@ -8,8 +8,10 @@ Reads the database strictly read-only. Validates the data and exits non-zero
 """
 
 import argparse
+import datetime
 import json
 import pathlib
+import re
 import sqlite3
 import sys
 
@@ -18,7 +20,28 @@ REPO = HERE.parent.parent
 DEFAULT_DB = REPO / "FamilyTreeViewer" / "FamilyTreeViewer" / "Database" / "Family.db"
 DEFAULT_OUT = HERE.parent / "data" / "family.json"
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
+
+DATE_RE = re.compile(r"^\d{2}\.\d{2}\.\d{4}$")
+
+
+def is_valid_date(text: str) -> bool:
+    """Strict dd.mm.yyyy and a real calendar date."""
+    if not DATE_RE.match(text):
+        return False
+    d, m, y = (int(x) for x in text.split("."))
+    try:
+        datetime.date(y, m, d)
+    except ValueError:
+        return False
+    return True
+
+
+def text_or_none(value) -> str | None:
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
 
 
 def open_readonly(db_path: pathlib.Path) -> sqlite3.Connection:
@@ -35,7 +58,8 @@ def load(conn: sqlite3.Connection) -> tuple[list[dict], list[str]]:
 
     for r in conn.execute(
         "SELECT Id, FirstName, LastName, MaidenName, Sex, BloodRelated, Living,"
-        " ParentBlood, ParentNotBlood FROM FamilyMembers ORDER BY Id"
+        " ParentBlood, ParentNotBlood, Title, BornDate, BornPlace, DeathDate, DeathPlace"
+        " FROM FamilyMembers ORDER BY Id"
     ):
         people[r["Id"]] = {
             "id": r["Id"],
@@ -49,6 +73,11 @@ def load(conn: sqlite3.Connection) -> tuple[list[dict], list[str]]:
             "parentBlood": r["ParentBlood"],
             "parentNotBlood": r["ParentNotBlood"],
             "partners": [],
+            "title": text_or_none(r["Title"]),
+            "bornDate": text_or_none(r["BornDate"]),
+            "bornPlace": text_or_none(r["BornPlace"]),
+            "deathDate": text_or_none(r["DeathDate"]),
+            "deathPlace": text_or_none(r["DeathPlace"]),
         }
 
     for r in conn.execute(
@@ -95,6 +124,9 @@ def validate(people: list[dict]) -> tuple[int | None, list[str], list[str]]:
                 )
         if not p["bloodRelated"] and p["id"] not in partner_of:
             warnings.append(f"{name(p['id'])}: not blood-related and not anyone's partner")
+        for key in ("bornDate", "deathDate"):
+            if p[key] is not None and not is_valid_date(p[key]):
+                errors.append(f"Person {p['id']}: {key} {p[key]!r} is not a valid dd.mm.yyyy date")
         if not p["firstName"]:
             warnings.append(f"Person {p['id']}: empty first name")
 

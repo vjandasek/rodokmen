@@ -8,6 +8,9 @@ import { Panel } from './panel.ts';
 import { findOverlapping, resizeLayout } from './resize.ts';
 import { clearLines } from './clear.ts';
 import { separateBoxes } from './separate.ts';
+import { FamilyEditor } from './edit.ts';
+import { EditorUI } from './editor.ts';
+import { saveFamily } from './save.ts';
 
 const svg = document.querySelector<SVGSVGElement>('#view')!;
 const scene = svg.querySelector<SVGGElement>('#scene')!;
@@ -17,6 +20,7 @@ const panelElement = document.querySelector<HTMLElement>('#panel')!;
 const panelToggle = document.querySelector<HTMLButtonElement>('#panel-toggle')!;
 const hint = document.querySelector<HTMLElement>('#hint')!;
 const pdfButton = document.querySelector<HTMLButtonElement>('#pdf')!;
+const saveButton = document.querySelector<HTMLButtonElement>('#save-data')!;
 
 /**
  * Developer mode (`?dev` in the address, read once at load): parameter panel, stats line and
@@ -54,6 +58,11 @@ function measureIn(family: string): Measure {
 const measure = measureIn(FONT.family);
 
 let tree: TreeNode | null = null;
+/** Developer mode: the editable data (editor.ts, edit.ts) and the name of the file it came from. */
+let editor: FamilyEditor | null = null;
+let fileName = 'family.json';
+/** Deepest generation, for the panel's per-generation scales (reset only when it changes). */
+let maxLevel = -1;
 let bounds: Bounds = { minX: -1, minY: -1, maxX: 1, maxY: 1 };
 /** What is on screen: the drawn layout and how it was drawn (the PDF export draws the same). */
 let drawing: { layout: Layout; ro: RenderOptions } | null = null;
@@ -194,12 +203,40 @@ async function fontsReady() {
   }
 }
 
+/** The tree from the data; the panel learns the number of generations. */
+function setTree(file: FamilyFile) {
+  tree = buildTree(file);
+  const deepest = Math.max(...[...walk(tree)].map((n) => n.level));
+  if (deepest !== maxLevel) panel.setGenerations(deepest);
+  maxLevel = deepest;
+}
+
+/**
+ * The family data. On the Vite dev server (both modes), the newest data/family*.json (saved
+ * edits, via the dev server's /api/family-latest); otherwise, or when that fails, data/family.json.
+ */
+async function fetchFamily(): Promise<FamilyFile> {
+  if (import.meta.env.DEV) {
+    try {
+      const response = await fetch('./api/family-latest');
+      if (response.ok) {
+        fileName = response.headers.get('X-Family-File') ?? fileName;
+        return (await response.json()) as FamilyFile;
+      }
+    } catch {
+      // Fall back to data/family.json below.
+    }
+  }
+  const response = await fetch('./data/family.json');
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as FamilyFile;
+}
+
 async function load() {
   try {
-    const [response] = await Promise.all([fetch('./data/family.json'), fontsReady()]);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    tree = buildTree((await response.json()) as FamilyFile);
-    panel.setGenerations(Math.max(...[...walk(tree)].map((n) => n.level)));
+    const [file] = await Promise.all([fetchFamily(), fontsReady()]);
+    setTree(file);
+    if (DEV) startEditing(file);
     message.hidden = true;
     render(true);
     if (!DEV) showHint();
@@ -301,5 +338,57 @@ pdfButton.addEventListener('click', async () => {
     pdfButton.textContent = label;
   }
 });
+
+/** Developer mode: editing through the tree's context menu, Ctrl+Z, "Uložit data". */
+function startEditing(file: FamilyFile) {
+  const ed = new FamilyEditor(file);
+  editor = ed;
+  new EditorUI(ed, svg, () => {
+    // Every edit: a fresh layout of the changed tree, the view stays where it is.
+    setTree(ed.file);
+    solved = null;
+    render(false);
+    showSaveState();
+  });
+  saveButton.hidden = false;
+  showSaveState();
+}
+
+/** The save button shows unsaved changes and names the loaded file. */
+function showSaveState() {
+  if (!editor) return;
+  const dirty = editor.dirty;
+  saveButton.textContent = dirty ? 'Uložit data •' : 'Uložit data';
+  saveButton.title = `${dirty ? 'Neuložené změny' : 'Bez změn'} (načteno ze souboru ${fileName})`;
+}
+
+saveButton.addEventListener('click', async () => {
+  if (!editor || saveButton.disabled) return;
+  saveButton.disabled = true;
+  try {
+    await saveFamily(editor);
+  } catch (e) {
+    showMessage(`Data se nepodařilo uložit (${(e as Error).message}).`);
+  } finally {
+    saveButton.disabled = false;
+    showSaveState();
+  }
+});
+
+// Leaving the page with unsaved edits asks first.
+window.addEventListener('beforeunload', (e) => {
+  if (editor?.dirty) e.preventDefault();
+});
+
+if (DEV) {
+  // A right press on the tree must not start a pan (it opens the editing menu): it never reaches PanZoom.
+  svg.parentElement!.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) e.stopPropagation();
+    },
+    true,
+  );
+}
 
 load();
