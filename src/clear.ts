@@ -10,8 +10,10 @@
  * it keeps `boxGap` from every box, or at least the distance it already had); if that does not
  * work, as little as clears it; if no angle does, it stays. A move is valid only if no line
  * passes behind the box any more, its own lines pass behind no more boxes than before and cross
- * no more lines of other families than before. Boxes are handled one at a time until none is
- * left that can be helped.
+ * no more lines of other families than before. If the box can't move, the box at the far end of
+ * the line (the child it leads to) turns instead, alone and as little as clears the line from the
+ * box, only where that child's own lines get better. Boxes are handled one at a time until none
+ * is left that can be helped.
  */
 import type { Layout, PlacedNode } from './layout.ts';
 import { separation, turned, withBoxes } from './box.ts';
@@ -76,47 +78,69 @@ export function clearLines(layout: Layout, options: BranchOptions = {}): Layout 
     return n;
   };
 
+  /**
+   * Turns box j alone to the middle of its free space if `good` holds there (`middle`), else as
+   * little as makes it hold; its own lines must not get worse (`strict`: must get better). True
+   * if moved.
+   */
+  const turnBox = (j: number, good: () => boolean, middle: boolean, strict: boolean): boolean => {
+    const original = nodes[j];
+    const before = ownTrouble(j);
+    const spacing = nodes.map((o, k) => (k === j ? Infinity : Math.min(boxGap(original, o), separation(original, o))));
+    const fits = (box: PlacedNode) => nodes.every((o, k) => k === j || separation(box, o) >= spacing[k] - 1e-9);
+    const place = (box: PlacedNode) => {
+      nodes[j] = box;
+      for (const l of own[j]) cache.delete(l);
+    };
+    const works = (box: PlacedNode) => {
+      place(box);
+      const trouble = good() ? ownTrouble(j) : Infinity;
+      place(original);
+      return strict ? trouble < before : trouble <= before;
+    };
+
+    // The free space: from the box's angle both ways as long as it keeps its distances.
+    const step = STEP / original.radius;
+    const reach = (dir: number) => {
+      let k = 0;
+      while (k * step < Math.PI && fits(turned(original, original.angle + dir * (k + 1) * step))) k++;
+      return k;
+    };
+    const [left, right] = [reach(-1), reach(1)];
+    const centre = turned(original, original.angle + ((right - left) / 2) * step);
+    let best: PlacedNode | null = middle && works(centre) ? centre : null;
+    for (let k = 1; !best && k <= Math.max(left, right); k++) {
+      for (const d of [-k, k]) {
+        if (d < -left || d > right) continue;
+        const box = turned(original, original.angle + d * step);
+        if (works(box)) {
+          best = box;
+          break;
+        }
+      }
+    }
+    if (best) place(best);
+    return best !== null;
+  };
+
   let moved = false;
   for (let changed = true; changed;) {
     changed = false;
     for (let i = 1; i < nodes.length; i++) {
-      const original = nodes[i];
-      if (!blocked(i, original)) continue;
-      const before = ownTrouble(i);
-      const spacing = nodes.map((o, j) => (j === i ? Infinity : Math.min(boxGap(original, o), separation(original, o))));
-      const fits = (box: PlacedNode) => nodes.every((o, j) => j === i || separation(box, o) >= spacing[j] - 1e-9);
-      const works = (box: PlacedNode) => {
-        if (blocked(i, box)) return false;
-        nodes[i] = box;
-        const ok = ownTrouble(i) <= before;
-        nodes[i] = original;
-        return ok;
-      };
-
-      // The free space: from the box's angle both ways as long as it keeps its distances.
-      const step = STEP / original.radius;
-      const reach = (dir: number) => {
-        let k = 0;
-        while (k * step < Math.PI && fits(turned(original, original.angle + dir * (k + 1) * step))) k++;
-        return k;
-      };
-      const [left, right] = [reach(-1), reach(1)];
-      const middle = turned(original, original.angle + ((right - left) / 2) * step);
-      let best: PlacedNode | null = works(middle) ? middle : null;
-      for (let k = 1; !best && k <= Math.max(left, right); k++) {
-        for (const d of [-k, k]) {
-          if (d < -left || d > right) continue;
-          const box = turned(original, original.angle + d * step);
-          if (works(box)) {
-            best = box;
-            break;
-          }
-        }
-      }
-      if (best) {
-        nodes[i] = best;
-        for (const l of own[i]) cache.delete(l);
+      if (!blocked(i, nodes[i])) continue;
+      if (turnBox(i, () => !blocked(i, nodes[i]), true, false)) {
         changed = moved = true;
+        continue;
+      }
+      // The box can't step aside: the box at the far end of a line behind it turns instead, as
+      // little as clears it.
+      for (const l of lines) {
+        if (l.from === i || l.to === i || !polylineHitsBox(points(l), nodes[i], margin(l))) continue;
+        const clear = () => !polylineHitsBox(points(l), nodes[i], margin(l)) && !blocked(l.to, nodes[l.to]);
+        if (turnBox(l.to, clear, false, true)) {
+          changed = moved = true;
+          break;
+        }
       }
     }
   }

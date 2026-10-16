@@ -1,6 +1,6 @@
 // Branches (branches.ts, widths in connectors.ts): no line through a foreign box, siblings and
 // different families never cross, widths within limits; the box colours keep contrast.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildTree, type FamilyFile, type Person } from '../src/model.ts';
 import { defaultOptions, layoutTree, type Layout } from '../src/layout.ts';
@@ -95,10 +95,15 @@ describe('branches', () => {
   // The default display (standard layout, boxes enlarged in place to DISPLAY_SCALE, pushed apart,
   // turned out of lines) has no line behind a foreign box and no crossings on the real data
   // (2026-10-16; the layout alone has one: the line to id 56 behind box 46).
+  // Also every saved copy (family-YYYY-MM-DD_HHMM.json): with two more children the line to
+  // id 128 passed behind box 107, whose neighbours left it no room (fixed by turning box 128).
   it.skipIf(!existsSync(DATA))('real data as displayed: no line behind a box, no crossings', () => {
-    const root = buildTree(JSON.parse(readFileSync(DATA, 'utf8')) as FamilyFile);
-    const display = clearLines(separateBoxes(resizeLayout(layoutTree(root), { ...defaultOptions, levelScale: DISPLAY_SCALE })));
-    expect(branchErrors(display)).toEqual([]);
+    const files = readdirSync(new URL('.', DATA)).filter((f) => /^family(-\d{4}-\d{2}-\d{2}_\d{4})?\.json$/.test(f));
+    for (const file of files) {
+      const root = buildTree(JSON.parse(readFileSync(new URL(file, DATA), 'utf8')) as FamilyFile);
+      const display = clearLines(separateBoxes(resizeLayout(layoutTree(root), { ...defaultOptions, levelScale: DISPLAY_SCALE })));
+      expect(branchErrors(display), file).toEqual([]);
+    }
   });
 
   it('widths grow with the number of people carried, from min to max', () => {
