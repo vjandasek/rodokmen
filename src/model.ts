@@ -1,4 +1,4 @@
-/** Shape of data/family.json, produced by scripts/db_to_json.py. */
+/** Shape of the data files (data/family*.json), written by the editor (edit.ts `serialize`). */
 export interface PartnerRef {
   id: number;
   married: boolean;

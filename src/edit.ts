@@ -40,7 +40,7 @@ export function isValidDate(text: string): boolean {
   return d <= days;
 }
 
-/** The file as written to disk: same formatting as scripts/db_to_json.py (2-space JSON, trailing newline). */
+/** The file as written to disk: 2-space JSON with a trailing newline. */
 export function serialize(file: FamilyFile): string {
   return JSON.stringify(file, null, 2) + '\n';
 }
@@ -59,7 +59,7 @@ function label(p: Person): string {
   return [p.title, p.firstName, p.lastName].filter((s) => s).join(' ');
 }
 
-/** Person with keys in the converter's order (details after `partners`). */
+/** Person with keys in the files' order (details after `partners`). */
 function canonical(p: Person): Person {
   return {
     id: p.id,

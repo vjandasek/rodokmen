@@ -246,8 +246,7 @@ async function load() {
     if (!DEV) showHint();
   } catch (e) {
     showMessage(
-      `Nepodařilo se načíst data/family.json (${(e as Error).message}). ` +
-        'Vytvořte jej z Family.db příkazem "npm run convert".',
+      `Nepodařilo se načíst data rodokmenu (${(e as Error).message}).`,
     );
   }
 }
