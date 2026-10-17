@@ -11,6 +11,7 @@ import { separateBoxes } from './separate.ts';
 import { FamilyEditor } from './edit.ts';
 import { EditorUI } from './editor.ts';
 import { saveFamily } from './save.ts';
+import { PersonCardUI } from './card.ts';
 
 const svg = document.querySelector<SVGSVGElement>('#view')!;
 const scene = svg.querySelector<SVGGElement>('#scene')!;
@@ -60,6 +61,8 @@ const measure = measureIn(FONT.family);
 let tree: TreeNode | null = null;
 /** Developer mode: the editable data (editor.ts, edit.ts) and the name of the file it came from. */
 let editor: FamilyEditor | null = null;
+/** The loaded data (normal view); the person card reads `editor.file` instead when editing. */
+let family: FamilyFile | null = null;
 let fileName = 'family.json';
 /** Deepest generation, for the panel's per-generation scales (reset only when it changes). */
 let maxLevel = -1;
@@ -235,6 +238,7 @@ async function fetchFamily(): Promise<FamilyFile> {
 async function load() {
   try {
     const [file] = await Promise.all([fetchFamily(), fontsReady()]);
+    family = file;
     setTree(file);
     if (DEV) startEditing(file);
     message.hidden = true;
@@ -308,6 +312,9 @@ if (DEV) new ResizeObserver(showStats).observe(svg);
 for (const [id, action] of Object.entries(actions)) {
   document.getElementById(id)!.addEventListener('click', action);
 }
+
+/** A tap on a person shows their card (both modes). */
+const card = new PersonCardUI(svg, () => editor?.file ?? family);
 window.addEventListener('keydown', (e) => {
   const target = e.target as HTMLElement;
   // Typing in the panel's fields (and browser shortcuts like Ctrl+plus) keep their meaning.
@@ -316,6 +323,8 @@ window.addEventListener('keydown', (e) => {
   const action = actions[keys[e.key] ?? ''];
   if (!action) return;
   e.preventDefault();
+  // The card would no longer be next to its person.
+  card.close();
   action();
 });
 
@@ -346,6 +355,7 @@ function startEditing(file: FamilyFile) {
   new EditorUI(ed, svg, () => {
     // Every edit: a fresh layout of the changed tree, the view stays where it is.
     setTree(ed.file);
+    card.close();
     solved = null;
     render(false);
     showSaveState();
