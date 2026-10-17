@@ -377,13 +377,14 @@ pdfButton.addEventListener('click', async () => {
 function startEditing(file: FamilyFile) {
   const ed = new FamilyEditor(file);
   editor = ed;
-  new EditorUI(ed, svg, () => {
+  const ui = new EditorUI(ed, svg, () => {
     // Every edit: a fresh layout of the changed tree, the view stays where it is.
     setTree(ed.file);
     solved = null;
     render(false);
     showSaveState();
   });
+  ui.onLongPress = () => card.cancelTap();
   saveButton.hidden = false;
   showSaveState();
 }

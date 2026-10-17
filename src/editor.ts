@@ -23,7 +23,14 @@ interface DialogExtras {
 
 type Submit = (details: PersonDetails, married: boolean, otherParent: number | null) => void;
 
+/** Holding a finger on a person this long (ms) opens the menu (phones have no right click). */
+const LONG_PRESS = 500;
+/** A hold that moves this far (px) is a pan, not a long press. */
+const HOLD_SLOP = 8;
+
 export class EditorUI {
+  /** Called when a long press opens the menu (the person card must not take it as a tap). */
+  onLongPress?: () => void;
   private readonly editor: FamilyEditor;
   private readonly changed: () => void;
   private menu: HTMLElement | null = null;
@@ -38,6 +45,31 @@ export class EditorUI {
       e.preventDefault();
       this.openMenu(Number(cell.getAttribute('data-person')), e.clientX, e.clientY);
     });
+    // Touch and pen: a finger held still on a person opens the same menu.
+    let hold: { pointer: number; x: number; y: number; timer: number } | null = null;
+    const cancelHold = () => {
+      if (hold) clearTimeout(hold.timer);
+      hold = null;
+    };
+    svg.addEventListener('pointerdown', (e) => {
+      cancelHold();
+      if (e.pointerType === 'mouse' || !e.isPrimary) return;
+      const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-person]');
+      if (!cell) return;
+      const { clientX: x, clientY: y } = e;
+      const timer = window.setTimeout(() => {
+        hold = null;
+        navigator.vibrate?.(30);
+        this.onLongPress?.();
+        this.openMenu(Number(cell.getAttribute('data-person')), x, y);
+      }, LONG_PRESS);
+      hold = { pointer: e.pointerId, x, y, timer };
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (hold && e.pointerId === hold.pointer && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) >= HOLD_SLOP) cancelHold();
+    });
+    svg.addEventListener('pointerup', cancelHold);
+    svg.addEventListener('pointercancel', cancelHold);
     document.addEventListener(
       'pointerdown',
       (e) => {

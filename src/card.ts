@@ -131,6 +131,11 @@ export class PersonCardUI {
     style.top = `${Math.round(along(y, h, was.top, was.bottom, now.top, now.bottom))}px`;
   }
 
+  /** The press in progress is not a tap (a long press opened the edit menu instead). */
+  cancelTap() {
+    this.press = null;
+  }
+
   close() {
     if (this.shown === null) return;
     this.shown = null;

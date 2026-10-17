@@ -546,6 +546,9 @@ main {
   touch-action: none;
   cursor: grab;
   user-select: none;
+  -webkit-user-select: none;
+  /* A held finger (developer mode: long press = edit menu) gets no iOS callout. */
+  -webkit-touch-callout: none;
 }
 
 #view.dragging {
