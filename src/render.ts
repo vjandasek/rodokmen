@@ -39,6 +39,16 @@ export function renderScene(layout: Layout, ro: RenderOptions): string {
   out.push(...branchPaths(layout, ro));
   out.push('</g>');
 
+  // Solid backings under the boxes, hidden by them: when the person card fades the rest of the
+  // tree (boxes see-through, style.css), lines still don't show through the boxes.
+  out.push('<g class="backings" fill="#f6f4ef">');
+  for (const p of layout.nodes) {
+    out.push(
+      `<rect x="${f(p.cx - p.width / 2)}" y="${f(p.cy - p.height / 2)}" width="${f(p.width)}" height="${f(p.height)}" rx="${f(p.cellHeight * 0.18)}"/>`,
+    );
+  }
+  out.push('</g>');
+
   out.push(`<g class="boxes" font-family="${escapeXml(ro.fontFamily)}">`);
   for (const p of layout.nodes) out.push(renderBox(p, maxLevel, ro));
   out.push('</g>');
@@ -63,7 +73,7 @@ export function renderScene(layout: Layout, ro: RenderOptions): string {
 function branchPaths(layout: Layout, ro: RenderOptions): string[] {
   return treeBranches(layout.nodes, ro)
     .sort((a, b) => b.width - a.width)
-    .map((p) => `<path d="${pathData(p, f)}" stroke-width="${f(p.width)}"/>`);
+    .map((p) => `<path d="${pathData(p, f)}" stroke-width="${f(p.width)}" data-child="${p.child.node.person.id}"/>`);
 }
 
 function renderBox(p: PlacedNode, maxLevel: number, ro: RenderOptions): string {
@@ -74,7 +84,8 @@ function renderBox(p: PlacedNode, maxLevel: number, ro: RenderOptions): string {
   const y0 = p.cy - p.height / 2;
   const radius = H * 0.18;
   const clipId = `clip-${p.node.person.id}`;
-  const out: string[] = [];
+  // The box's group names its blood relative (the person card highlights a branch by it).
+  const out: string[] = [`<g data-box="${p.node.person.id}">`];
   out.push(
     `<clipPath id="${clipId}"><rect x="${f(x0)}" y="${f(y0)}" width="${f(p.width)}" height="${f(p.height)}" rx="${f(radius)}"/></clipPath>`,
   );
@@ -103,6 +114,7 @@ function renderBox(p: PlacedNode, maxLevel: number, ro: RenderOptions): string {
       ` fill="none" stroke="${colors.stroke}" stroke-width="${f(Math.max(0.8, H / 44))}"/>`,
   );
   cells.forEach((c, i) => out.push(renderCellText(c.person, c.x + W / 2, c.y + H / 2, W, H, i === 0, ro)));
+  out.push('</g>');
   return out.join('');
 }
 

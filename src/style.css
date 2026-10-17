@@ -107,6 +107,20 @@ body:not(.dev) #pdf {
 }
 
 /*
+ * A tapped person's line back to the root stays, the rest of the tree fades (card.ts). The boxes'
+ * solid backings (render.ts, page colour) keep lines from showing through faded boxes.
+ */
+#scene [data-box],
+#scene [data-child] {
+  transition: opacity 0.2s;
+}
+
+#scene.highlighting [data-box]:not(.on-path),
+#scene.highlighting [data-child]:not(.on-path) {
+  opacity: 0.22;
+}
+
+/*
  * Person card (card.ts): floats beside the tapped person (card.ts sets left/top); on phones a
  * panel at the bottom (media query below). Big text for older readers.
  */
@@ -184,7 +198,7 @@ body:not(.dev) #pdf {
 .person-card dl {
   display: grid;
   /* One label width for both sections, so their values line up. */
-  grid-template-columns: 7.6rem minmax(0, 1fr);
+  grid-template-columns: 8.6rem minmax(0, 1fr);
   margin: 6px 12px 0 0;
 }
 

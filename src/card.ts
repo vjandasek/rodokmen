@@ -15,6 +15,8 @@ import type { FamilyFile } from './model.ts';
 const TAP_SLOP = 6;
 /** Gap between the card and the tapped person, and the card's margin from the stage edges. */
 const GAP = 12;
+/** Spacing of the sample points along the highlighted lines that the card should not hide (px). */
+const LINE_POINT = 10;
 /** The phone breakpoint of style.css: the card is a bottom panel there. */
 const PHONE = '(max-width: 640px)';
 /** Rows about relatives (details.ts labels); the card shows them in a section of their own. */
@@ -96,6 +98,7 @@ export class PersonCardUI {
   close() {
     if (this.shown === null) return;
     this.shown = null;
+    this.highlight(null);
     const hadFocus = this.element.contains(document.activeElement);
     this.element.hidden = true;
     if (hadFocus) (document.activeElement as HTMLElement | null)?.blur();
@@ -134,6 +137,27 @@ export class PersonCardUI {
       return;
     }
     this.open(Number(cell.getAttribute('data-person')), cell);
+  }
+
+  /**
+   * Highlights the line from the box with blood relative `boxId` back to the root (the rest of
+   * the tree fades, style.css); null removes it. A partner's box is its blood relative's.
+   */
+  private highlight(boxId: number | null) {
+    const scene = this.svg.querySelector('#scene');
+    const file = this.data();
+    if (!scene) return;
+    for (const el of scene.querySelectorAll('.on-path')) el.classList.remove('on-path');
+    scene.classList.toggle('highlighting', boxId !== null && file !== null);
+    if (boxId === null || !file) return;
+    const byId = new Map(file.people.map((p) => [p.id, p]));
+    const path = new Set<string>();
+    for (let id: number | null = boxId; id !== null && !path.has(String(id)); id = byId.get(id)?.parentBlood ?? null) {
+      path.add(String(id));
+    }
+    for (const el of scene.querySelectorAll<SVGElement>('[data-box], [data-child]')) {
+      if (path.has(el.dataset.box ?? el.dataset.child ?? '')) el.classList.add('on-path');
+    }
   }
 
   private onCancel(e: PointerEvent) {
@@ -178,15 +202,18 @@ export class PersonCardUI {
     this.shown = id;
     this.element.hidden = false;
     this.element.scrollTop = 0;
+    const box = cell.closest('[data-box]')?.getAttribute('data-box');
+    this.highlight(box ? Number(box) : null);
     this.place(cell.getBoundingClientRect());
     // Screen readers announce the dialog; a section has no keyboard to pop up on phones.
     if (!wasOpen) this.element.focus({ preventScroll: true });
   }
 
   /**
-   * Floats the card beside `target` (screen rectangle of the tapped cell), inside the stage:
-   * right of it, else left, else below or above, whichever covers it least. On phones CSS
-   * docks it to the bottom instead.
+   * Floats the card beside `target` (screen rectangle of the tapped cell), inside the stage, at
+   * the candidate position that hides least of the person and then of their highlighted line to
+   * the root (boxes and lines); ties go to the earlier candidate (right, left, below, above).
+   * On phones CSS docks it to the bottom instead.
    */
   private place(target: DOMRect) {
     const style = this.element.style;
@@ -210,21 +237,55 @@ export class PersonCardUI {
     const clamp = (v: number, max: number) => Math.min(max, Math.max(GAP, v));
     const midY = (t.top + t.bottom) / 2 - h / 2;
     const midX = (t.left + t.right) / 2 - w / 2;
+    // Beside the person: centred on it, or flush with its top or bottom (left/right) edge.
+    const right = t.right + GAP;
+    const left = t.left - GAP - w;
+    const below = t.bottom + GAP;
+    const above = t.top - GAP - h;
     const candidates = [
-      { x: t.right + GAP, y: midY },
-      { x: t.left - GAP - w, y: midY },
-      { x: midX, y: t.bottom + GAP },
-      { x: midX, y: t.top - GAP - h },
-    ].map(({ x, y }) => {
+      { x: right, y: midY }, { x: left, y: midY }, { x: midX, y: below }, { x: midX, y: above },
+      { x: right, y: t.top }, { x: right, y: t.bottom - h }, { x: left, y: t.top }, { x: left, y: t.bottom - h },
+      { x: t.left, y: below }, { x: t.right - w, y: below }, { x: t.left, y: above }, { x: t.right - w, y: above },
+    ];
+    const { boxes, points } = this.pathShapes(stage);
+    const overlap = (x: number, y: number, r: { left: number; top: number; right: number; bottom: number }) =>
+      Math.max(0, Math.min(x + w, r.right) - Math.max(x, r.left)) * Math.max(0, Math.min(y + h, r.bottom) - Math.max(y, r.top));
+    const scored = candidates.map(({ x, y }) => {
       const cx = clamp(x, maxX);
       const cy = clamp(y, maxY);
-      const ox = Math.max(0, Math.min(cx + w, t.right) - Math.max(cx, t.left));
-      const oy = Math.max(0, Math.min(cy + h, t.bottom) - Math.max(cy, t.top));
-      return { x: cx, y: cy, covered: ox * oy };
+      const hiddenPath =
+        boxes.reduce((sum, r) => sum + overlap(cx, cy, r), 0) +
+        points.filter(([px, py]) => px >= cx && px <= cx + w && py >= cy && py <= cy + h).length * LINE_POINT ** 2;
+      return { x: cx, y: cy, cost: overlap(cx, cy, t) * 1000 + hiddenPath };
     });
-    // The first position (right, left, below, above) that covers the least.
-    const best = candidates.reduce((a, b) => (b.covered < a.covered ? b : a));
+    const best = scored.reduce((a, b) => (b.cost < a.cost ? b : a));
     style.left = `${Math.round(best.x)}px`;
     style.top = `${Math.round(best.y)}px`;
+  }
+
+  /**
+   * The highlighted line to the root in stage coordinates: its boxes as rectangles, its lines as
+   * points every `LINE_POINT` px.
+   */
+  private pathShapes(stage: DOMRect) {
+    type Box = { left: number; top: number; right: number; bottom: number };
+    const boxes: Box[] = [];
+    const points: [number, number][] = [];
+    for (const el of this.svg.querySelectorAll<SVGGraphicsElement>('#scene .on-path')) {
+      if (el instanceof SVGPathElement) {
+        const m = el.getScreenCTM();
+        if (!m) continue;
+        const length = el.getTotalLength();
+        const n = Math.min(400, Math.max(2, Math.ceil((length * Math.hypot(m.a, m.b)) / LINE_POINT)));
+        for (let i = 0; i <= n; i++) {
+          const p = el.getPointAtLength((length * i) / n).matrixTransform(m);
+          points.push([p.x - stage.left, p.y - stage.top]);
+        }
+      } else {
+        const r = el.getBoundingClientRect();
+        boxes.push({ left: r.left - stage.left, top: r.top - stage.top, right: r.right - stage.left, bottom: r.bottom - stage.top });
+      }
+    }
+    return { boxes, points };
   }
 }
