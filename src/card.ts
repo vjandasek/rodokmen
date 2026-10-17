@@ -2,7 +2,8 @@
  * The person card: a short tap or click on a person in the tree shows their details
  * (details.ts). On larger screens it floats next to the person, on phones it is a panel at the
  * bottom of the screen (style.css). A drag or pinch is a pan/zoom, not a tap, and closes the
- * card; so do the × button, a tap elsewhere and Escape.
+ * card; so do the × button, a tap elsewhere and Escape. A person found by the search box opens
+ * the same way (`show`).
  *
  * PanZoom captures the pointer, so the `click` target is the svg: taps are recognised here from
  * the pointer's own down/move/up events and the person is found under the pointer
@@ -87,12 +88,29 @@ export class PersonCardUI {
         this.close();
       }
     });
-    window.addEventListener('resize', () => this.close());
+    // A width change (rotation, window resize) moves the tree under the card; a height change
+    // alone is usually a phone keyboard opening or closing (e.g. after a search) and keeps it.
+    let width = window.innerWidth;
+    window.addEventListener('resize', () => {
+      if (window.innerWidth !== width) this.close();
+      width = window.innerWidth;
+    });
   }
 
   /** Whether the card is open. */
   get isOpen(): boolean {
     return this.shown !== null;
+  }
+
+  /**
+   * Opens the card of person `id` as a tap on them would (a found person, searchbox.ts): their
+   * cell in the scene, a partner's inside the blood relative's box. False if not drawn.
+   */
+  show(id: number): boolean {
+    const cell = this.svg.querySelector(`#scene [data-person="${id}"]`);
+    if (!cell) return false;
+    this.open(id, cell);
+    return true;
   }
 
   close() {

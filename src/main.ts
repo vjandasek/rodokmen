@@ -12,6 +12,7 @@ import { FamilyEditor } from './edit.ts';
 import { EditorUI } from './editor.ts';
 import { saveFamily } from './save.ts';
 import { PersonCardUI } from './card.ts';
+import { SearchBox } from './searchbox.ts';
 
 const svg = document.querySelector<SVGSVGElement>('#view')!;
 const scene = svg.querySelector<SVGGElement>('#scene')!;
@@ -314,6 +315,30 @@ for (const [id, action] of Object.entries(actions)) {
 
 /** A tap on a person shows their card (both modes). */
 const card = new PersonCardUI(svg, () => editor?.file ?? family);
+
+/** Space the phone's bottom card panel takes from the view (style.css: max-height 55%). */
+const PHONE_CARD_SHARE = 0.55;
+/** Space the floating title and search take at the top on phones (px). */
+const PHONE_TOP = 64;
+
+/**
+ * A person picked in the search box: the view glides to their box (a partner's is inside the
+ * blood relative's), then their card opens with the line to the root, as after a tap. On phones
+ * the box lands above the bottom card panel.
+ */
+new SearchBox(document.querySelector<HTMLElement>('#search')!, () => editor?.file ?? family, (id) => {
+  card.close();
+  const cell = svg.querySelector(`#scene [data-person="${id}"]`);
+  if (!cell) return;
+  const box = cell.closest('[data-box]') ?? cell;
+  const phone = window.matchMedia('(max-width: 640px)').matches;
+  const height = svg.getBoundingClientRect().height;
+  const insets = phone ? { top: PHONE_TOP, bottom: height * PHONE_CARD_SHARE } : {};
+  panZoom.focusOn(panZoom.toScene(box.getBoundingClientRect()), insets).then((arrived) => {
+    if (arrived) card.show(id);
+  });
+});
+
 window.addEventListener('keydown', (e) => {
   const target = e.target as HTMLElement;
   // Typing in the panel's fields (and browser shortcuts like Ctrl+plus) keep their meaning.

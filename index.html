@@ -8,6 +8,18 @@
   <body>
     <header>
       <h1>Rodokmen</h1>
+      <!-- Finding a person (searchbox.ts); on phones only the magnifier button until tapped. -->
+      <div id="search" role="search">
+        <button type="button" class="search-open" aria-label="Hledat osobu" aria-expanded="false" aria-controls="search-input" title="Hledat osobu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 20 20" /></svg>
+        </button>
+        <div class="search-field">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 20 20" /></svg>
+          <input id="search-input" type="text" inputmode="search" enterkeyhint="search" placeholder="Hledat osobu…" aria-label="Hledat osobu" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-results" />
+          <button type="button" class="search-clear" aria-label="Smazat hledání" title="Smazat (Esc)" hidden>×</button>
+        </div>
+        <ul id="search-results" class="search-results" role="listbox" aria-label="Nalezené osoby" hidden></ul>
+      </div>
       <!-- Developer mode only (?dev): main.ts shows these. -->
       <span id="stats" hidden></span>
       <button id="save-data" title="Uložit upravená data do souboru JSON" hidden>Uložit data</button>

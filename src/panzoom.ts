@@ -12,6 +12,10 @@ import type { Bounds } from './layout.ts';
 const FIT_MARGIN = 0.04;
 /** Duration of button/keyboard moves in ms. */
 const ANIMATION_MS = 200;
+/** Duration of the glide to a found person (`focusOn`), longer as it may cross the whole tree. */
+const FOCUS_MS = 600;
+/** Space around a focused box on each side, as a multiple of its larger side. */
+const FOCUS_PAD = 1.5;
 
 /** Screen transform: scene point p is drawn at (x + k·p.x, y + k·p.y). */
 export interface View {
@@ -148,6 +152,8 @@ export class PanZoom {
   /** Running animation: its frame request and where it ends (the base for further clicks). */
   private frame = 0;
   private goal: View | null = null;
+  /** Called once the running animation ends: true when it arrived, false when interrupted. */
+  private done: ((arrived: boolean) => void) | null = null;
   /** Element floating over the view that `fit` keeps the tree clear of (the buttons). */
   private obstacle: HTMLElement | null = null;
 
@@ -196,6 +202,37 @@ export class PanZoom {
       this.stop();
       this.set(view);
     }
+  }
+
+  /**
+   * Glides to a scene rectangle (a found person's box) so it is readable with some of its
+   * surroundings: the box padded by `FOCUS_PAD` is fitted into the view minus `insets` (px kept
+   * free on each side, e.g. where the person card will cover the view), within the zoom limits.
+   * Resolves once the view is there (true) or when the user took over first (false).
+   */
+  focusOn(target: Bounds, insets: Partial<Rect> = {}): Promise<boolean> {
+    const rect = this.svg.getBoundingClientRect();
+    this.width = rect.width;
+    this.height = rect.height;
+    const { left = 0, top = 0, right = 0, bottom = 0 } = insets;
+    const pad = FOCUS_PAD * Math.max(target.maxX - target.minX, target.maxY - target.minY);
+    const region = { minX: target.minX - pad, minY: target.minY - pad, maxX: target.maxX + pad, maxY: target.maxY + pad };
+    const w = Math.max(1, rect.width - left - right);
+    const h = Math.max(1, rect.height - top - bottom);
+    const k = this.clampScale(fitInto(region, w, h, 0).k);
+    // The box's centre goes to the middle of the free area.
+    const cx = (target.minX + target.maxX) / 2;
+    const cy = (target.minY + target.maxY) / 2;
+    const view = { x: left + w / 2 - k * cx, y: top + h / 2 - k * cy, k };
+    return new Promise((resolve) => this.animateTo(view, FOCUS_MS, resolve));
+  }
+
+  /** A screen rectangle (client px, e.g. `getBoundingClientRect`) in scene units. */
+  toScene(r: { left: number; top: number; right: number; bottom: number }): Bounds {
+    const view = this.svg.getBoundingClientRect();
+    const sx = (px: number) => (px - view.left - this.x) / this.k;
+    const sy = (py: number) => (py - view.top - this.y) / this.k;
+    return { minX: sx(r.left), minY: sy(r.top), maxX: sx(r.right), maxY: sy(r.bottom) };
   }
 
   /** Zoom at which `fit` shows the rectangle in the current view size. */
@@ -273,12 +310,13 @@ export class PanZoom {
   }
 
   /** Glides to `view` (limited first): the middle point moves linearly, the zoom geometrically. */
-  private animateTo(view: View) {
+  private animateTo(view: View, ms = ANIMATION_MS, done?: (arrived: boolean) => void) {
     const to = this.constrain(view);
     this.stop();
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduced) {
       this.set(to);
+      done?.(true);
       return;
     }
     const from = this.view();
@@ -288,8 +326,9 @@ export class PanZoom {
     const tc = { x: (w - to.x) / to.k, y: (h - to.y) / to.k };
     const start = performance.now();
     this.goal = to;
+    this.done = done ?? null;
     const step = (now: number) => {
-      const t = Math.min(1, (now - start) / ANIMATION_MS);
+      const t = Math.min(1, (now - start) / ms);
       const e = 1 - (1 - t) ** 3;
       const k = from.k * (to.k / from.k) ** e;
       const cx = fc.x + (tc.x - fc.x) * e;
@@ -304,23 +343,37 @@ export class PanZoom {
         this.frame = 0;
         this.goal = null;
         this.set(to);
+        this.finished(true);
       }
     };
     this.frame = requestAnimationFrame(step);
   }
 
-  /** Stops a running animation where it is (any direct interaction takes over). */
-  private stop() {
+  /**
+   * Stops a running animation where it is (any direct interaction takes over); `arrive` jumps
+   * to its end instead (a resize must not cancel a glide whose end someone waits for).
+   */
+  private stop(arrive = false) {
     if (this.frame) cancelAnimationFrame(this.frame);
+    const goal = this.goal;
     this.frame = 0;
     this.goal = null;
+    if (arrive && goal) this.set(goal);
+    this.finished(arrive && goal !== null);
+  }
+
+  /** Tells whoever waits for the animation's end (`focusOn`) how it ended. */
+  private finished(arrived: boolean) {
+    const done = this.done;
+    this.done = null;
+    done?.(arrived);
   }
 
   /** Keeps the scene point in the middle of the view where it was. */
   private onResize() {
     const rect = this.svg.getBoundingClientRect();
     if (this.width > 0 && this.height > 0) {
-      this.stop();
+      this.stop(true);
       this.x += (rect.width - this.width) / 2;
       this.y += (rect.height - this.height) / 2;
     }
