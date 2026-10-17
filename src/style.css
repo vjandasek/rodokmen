@@ -832,6 +832,40 @@ main {
   opacity: 0;
 }
 
+/* The hint names the zoom buttons, or on phones (no zoom buttons) pinching. */
+.hint-pinch {
+  display: none;
+}
+
+/*
+ * Phones (narrow touch screens): only "Celý strom" stays; moving and zooming are by finger
+ * (user, 2026-10-17). Narrow desktop windows keep all buttons.
+ */
+@media (max-width: 640px) and (pointer: coarse) {
+  #controls {
+    grid-template-columns: var(--size);
+    grid-template-rows: var(--size);
+    grid-template-areas: 'fit';
+  }
+
+  #pan-up,
+  #pan-left,
+  #pan-right,
+  #pan-down,
+  #zoom-in,
+  #zoom-out {
+    display: none;
+  }
+
+  .hint-buttons {
+    display: none;
+  }
+
+  .hint-pinch {
+    display: inline;
+  }
+}
+
 /* Phones and narrow windows. */
 @media (max-width: 640px) {
   #controls {

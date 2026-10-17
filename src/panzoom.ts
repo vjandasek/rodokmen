@@ -159,6 +159,9 @@ export class PanZoom {
 
   private readonly svg: SVGSVGElement;
 
+  /** Called after every change of the view (pan, zoom, resize, animation frame). */
+  onView?: () => void;
+
   constructor(svg: SVGSVGElement) {
     this.svg = svg;
     svg.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
@@ -449,5 +452,6 @@ export class PanZoom {
     if (!(width > 0 && height > 0)) return;
     const k = this.k;
     this.svg.setAttribute('viewBox', `${-this.x / k} ${-this.y / k} ${width / k} ${height / k}`);
+    this.onView?.();
   }
 }

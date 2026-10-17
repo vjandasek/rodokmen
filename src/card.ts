@@ -1,9 +1,10 @@
 /**
  * The person card: a short tap or click on a person in the tree shows their details
  * (details.ts). On larger screens it floats next to the person, on phones it is a panel at the
- * bottom of the screen (style.css). A drag or pinch is a pan/zoom, not a tap, and closes the
- * card; so do the × button, a tap elsewhere and Escape. A person found by the search box opens
- * the same way (`show`).
+ * bottom of the screen (style.css). It closes only with its × button (or Escape); panning,
+ * zooming and taps elsewhere keep it open (user, 2026-10-17), a tap on another person switches
+ * it; on larger screens it moves with its person (`follow`). A person found by the search box
+ * opens the same way (`show`).
  *
  * PanZoom captures the pointer, so the `click` target is the svg: taps are recognised here from
  * the pointer's own down/move/up events and the person is found under the pointer
@@ -32,6 +33,8 @@ export class PersonCardUI {
   private readonly rows: HTMLElement;
   /** Person shown, or null when closed. */
   private shown: number | null = null;
+  /** Where the floating card was placed relative to its person's cell (stage px; not on phones). */
+  private anchor: { cell: DOMRect; x: number; y: number } | null = null;
   /** The press in progress on the tree: where it started and whether it is still a tap. */
   private press: { id: number; x: number; y: number; tap: boolean } | null = null;
   /** Pointers down on the tree (a second one makes a pinch). */
@@ -69,31 +72,11 @@ export class PersonCardUI {
     svg.addEventListener('pointermove', (e) => this.onMove(e));
     svg.addEventListener('pointerup', (e) => this.onUp(e));
     svg.addEventListener('pointercancel', (e) => this.onCancel(e));
-    // Zooming (wheel, double click) or the dev-mode editing menu: the card would be out of place.
-    svg.addEventListener('wheel', () => this.close(), { passive: true });
-    svg.addEventListener('dblclick', () => this.close());
-    svg.addEventListener('contextmenu', () => this.close());
-    // A press anywhere outside the tree and the card (header, buttons, panel) closes it.
-    document.addEventListener(
-      'pointerdown',
-      (e) => {
-        const target = e.target as Node;
-        if (!this.svg.contains(target) && !this.element.contains(target)) this.close();
-      },
-      true,
-    );
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.shown !== null) {
         e.preventDefault();
         this.close();
       }
-    });
-    // A width change (rotation, window resize) moves the tree under the card; a height change
-    // alone is usually a phone keyboard opening or closing (e.g. after a search) and keeps it.
-    let width = window.innerWidth;
-    window.addEventListener('resize', () => {
-      if (window.innerWidth !== width) this.close();
-      width = window.innerWidth;
     });
   }
 
@@ -113,6 +96,41 @@ export class PersonCardUI {
     return true;
   }
 
+  /**
+   * After a redraw (an edit, a panel change): the open card shows its person's current details
+   * and highlight where it is, or closes if that person is gone.
+   */
+  refresh() {
+    if (this.shown === null) return;
+    const cell = this.svg.querySelector(`#scene [data-person="${this.shown}"]`);
+    if (cell) this.open(this.shown, cell, false);
+    else this.close();
+  }
+
+  /**
+   * The view moved (PanZoom): the floating card moves with its person, keeping its side and gap
+   * (beside the person: the same distance from its edge; along it: scaled with the zoom). It may
+   * leave the visible area with the person. Phones keep the bottom panel.
+   */
+  follow() {
+    if (this.shown === null || !this.anchor || window.matchMedia(PHONE).matches) return;
+    const cell = this.svg.querySelector(`#scene [data-person="${this.shown}"]`);
+    if (!cell) return;
+    const stage = this.stage.getBoundingClientRect();
+    const r = cell.getBoundingClientRect();
+    const now = new DOMRect(r.left - stage.left, r.top - stage.top, r.width, r.height);
+    const { cell: was, x, y } = this.anchor;
+    const w = this.element.offsetWidth;
+    const h = this.element.offsetHeight;
+    const along = (pos: number, size: number, wasStart: number, wasEnd: number, start: number, end: number) =>
+      pos >= wasEnd ? end + (pos - wasEnd)
+      : pos + size <= wasStart ? start - (wasStart - pos)
+      : start + ((pos - wasStart) * (end - start)) / Math.max(wasEnd - wasStart, 1e-6);
+    const style = this.element.style;
+    style.left = `${Math.round(along(x, w, was.left, was.right, now.left, now.right))}px`;
+    style.top = `${Math.round(along(y, h, was.top, was.bottom, now.top, now.bottom))}px`;
+  }
+
   close() {
     if (this.shown === null) return;
     this.shown = null;
@@ -127,7 +145,6 @@ export class PersonCardUI {
     // Only a plain left press (or touch/pen) with a single pointer can become a tap.
     if (this.pointers.size > 1 || (e.pointerType === 'mouse' && e.button !== 0)) {
       this.press = null;
-      this.close();
       return;
     }
     this.press = { id: e.pointerId, x: e.clientX, y: e.clientY, tap: true };
@@ -139,7 +156,6 @@ export class PersonCardUI {
     if (Math.hypot(e.clientX - p.x, e.clientY - p.y) >= TAP_SLOP) {
       // A pan has started.
       p.tap = false;
-      this.close();
     }
   }
 
@@ -150,10 +166,7 @@ export class PersonCardUI {
     this.press = null;
     if (!p.tap || Math.hypot(e.clientX - p.x, e.clientY - p.y) >= TAP_SLOP) return;
     const cell = document.elementFromPoint(p.x, p.y)?.closest('[data-person]');
-    if (!cell || !this.svg.contains(cell)) {
-      this.close();
-      return;
-    }
+    if (!cell || !this.svg.contains(cell)) return;
     this.open(Number(cell.getAttribute('data-person')), cell);
   }
 
@@ -183,7 +196,7 @@ export class PersonCardUI {
     this.press = null;
   }
 
-  private open(id: number, cell: Element) {
+  private open(id: number, cell: Element, place = true) {
     const file = this.data();
     if (!file) return;
     let card;
@@ -219,10 +232,10 @@ export class PersonCardUI {
     const wasOpen = this.shown !== null;
     this.shown = id;
     this.element.hidden = false;
-    this.element.scrollTop = 0;
+    if (place) this.element.scrollTop = 0;
     const box = cell.closest('[data-box]')?.getAttribute('data-box');
     this.highlight(box ? Number(box) : null);
-    this.place(cell.getBoundingClientRect());
+    if (place) this.place(cell.getBoundingClientRect());
     // Screen readers announce the dialog; a section has no keyboard to pop up on phones.
     if (!wasOpen) this.element.focus({ preventScroll: true });
   }
@@ -279,6 +292,7 @@ export class PersonCardUI {
     const best = scored.reduce((a, b) => (b.cost < a.cost ? b : a));
     style.left = `${Math.round(best.x)}px`;
     style.top = `${Math.round(best.y)}px`;
+    this.anchor = { cell: new DOMRect(t.left, t.top, t.right - t.left, t.bottom - t.top), x: best.x, y: best.y };
   }
 
   /**

@@ -132,6 +132,8 @@ function render(fit: boolean) {
     maxLineWidth: look.maxLineWidth,
   };
   scene.innerHTML = renderScene(layout, { ...ro, overlapping: overlaps?.boxes });
+  // An open person card keeps its person and highlight in the new drawing.
+  card.refresh();
   drawing = { layout, ro };
   const ms = performance.now() - t0;
   bounds = layout.bounds;
@@ -315,6 +317,7 @@ for (const [id, action] of Object.entries(actions)) {
 
 /** A tap on a person shows their card (both modes). */
 const card = new PersonCardUI(svg, () => editor?.file ?? family);
+panZoom.onView = () => card.follow();
 
 /** Space the phone's bottom card panel takes from the view (style.css: max-height 55%). */
 const PHONE_CARD_SHARE = 0.55;
@@ -347,8 +350,6 @@ window.addEventListener('keydown', (e) => {
   const action = actions[keys[e.key] ?? ''];
   if (!action) return;
   e.preventDefault();
-  // The card would no longer be next to its person.
-  card.close();
   action();
 });
 
@@ -379,7 +380,6 @@ function startEditing(file: FamilyFile) {
   new EditorUI(ed, svg, () => {
     // Every edit: a fresh layout of the changed tree, the view stays where it is.
     setTree(ed.file);
-    card.close();
     solved = null;
     render(false);
     showSaveState();
