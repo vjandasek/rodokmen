@@ -16,6 +16,8 @@ export interface RenderOptions {
   /** Font weights of blood relatives (default 700) and partners (default 400). */
   boldWeight?: number;
   normalWeight?: number;
+  /** Name size as a multiple of the base fit (`NAME_SCALE` when omitted; see `cellText`). */
+  nameScale?: number;
   /**
    * For outputs that place `dominant-baseline="central"` differently from browsers (the PDF
    * export): names are drawn on their alphabetic baseline instead, this many font sizes below
@@ -121,10 +123,17 @@ function renderBox(p: PlacedNode, maxLevel: number, ro: RenderOptions): string {
 /** Line height as a multiple of the font size. */
 const LINE_FACTOR = 1.12;
 
+/**
+ * Default name size, as a multiple of the base fit that keeps 10 % of the cell height free above
+ * and below the two lines. 1.15 leaves about 4 % (the font's own spacing above and below the
+ * letters still shows as a margin); at 1.25 descenders (J, j) touch the cell's edge.
+ */
+export const NAME_SCALE = 1.15;
+
 function renderCellText(
   person: Person, cx: number, cy: number, W: number, H: number, isBlood: boolean, ro: RenderOptions,
 ): string {
-  const { line1, line2, size, weight } = cellText(person, W, H, isBlood, ro.measure, weights(ro));
+  const { line1, line2, size, weight } = cellText(person, W, H, isBlood, ro.measure, textStyle(ro));
   const lineHeight = size * LINE_FACTOR;
   const color = person.living ? '#ffffff' : '#111111';
   const style = `font-size="${f(size)}" font-weight="${weight}"`;
@@ -144,21 +153,30 @@ interface CellText {
   weight: number;
 }
 
-type Weights = Pick<RenderOptions, 'boldWeight' | 'normalWeight'>;
+type TextOptions = Pick<RenderOptions, 'boldWeight' | 'normalWeight' | 'nameScale'>;
 
-function weights(w: Weights): [number, number] {
-  return [w.boldWeight ?? 700, w.normalWeight ?? 400];
+interface TextStyle {
+  bold: number;
+  normal: number;
+  scale: number;
 }
 
-/** Two lines (first name, surname) with the largest font that fits the cell. */
-function cellText(person: Person, W: number, H: number, isBlood: boolean, measure: Measure, [bold, normal]: [number, number]): CellText {
+function textStyle(t: TextOptions): TextStyle {
+  return { bold: t.boldWeight ?? 700, normal: t.normalWeight ?? 400, scale: t.nameScale ?? NAME_SCALE };
+}
+
+/**
+ * Two lines (first name, surname): the height fit times `scale`, unless the cell's width (minus
+ * the side padding) allows less.
+ */
+function cellText(person: Person, W: number, H: number, isBlood: boolean, measure: Measure, { bold, normal, scale }: TextStyle): CellText {
   // Blood relatives bold, partners regular; both upright (italics are harder to read).
   const weight = isBlood ? bold : normal;
   const line1 = (person.living ? '' : '† ') + person.firstName;
   const line2 = person.lastName ?? '';
   const pad = H * 0.1;
   // Sized for two lines even when there is one, so single names don't get a giant font.
-  const byHeight = (H - 2 * pad) / (2 * LINE_FACTOR);
+  const byHeight = (scale * (H - 2 * pad)) / (2 * LINE_FACTOR);
   const probe = 10;
   const widest = Math.max(measure(line1, probe, weight, false), line2 ? measure(line2, probe, weight, false) : 0);
   const byWidth = (probe * (W - 2 * pad)) / Math.max(widest, 1);
@@ -166,11 +184,11 @@ function cellText(person: Person, W: number, H: number, isBlood: boolean, measur
 }
 
 /** Font size of the smallest name in the drawing, in scene units (as `renderScene` draws it). */
-export function smallestNameSize(layout: Layout, measure: Measure, w: Weights = {}): number {
+export function smallestNameSize(layout: Layout, measure: Measure, t: TextOptions = {}): number {
   let smallest = Infinity;
   for (const p of layout.nodes) {
     [p.node.person, ...p.node.partners].forEach((person, i) => {
-      smallest = Math.min(smallest, cellText(person, p.cellWidth, p.cellHeight, i === 0, measure, weights(w)).size);
+      smallest = Math.min(smallest, cellText(person, p.cellWidth, p.cellHeight, i === 0, measure, textStyle(t)).size);
     });
   }
   return smallest;

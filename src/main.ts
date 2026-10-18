@@ -131,6 +131,7 @@ function render(fit: boolean) {
     normalWeight: FONT.normal,
     minLineWidth: look.minLineWidth,
     maxLineWidth: look.maxLineWidth,
+    nameScale: look.nameScale,
   };
   scene.innerHTML = renderScene(layout, { ...ro, overlapping: overlaps?.boxes });
   // An open person card keeps its person and highlight in the new drawing.
@@ -144,7 +145,7 @@ function render(fit: boolean) {
       people: countPeople(tree),
       generations: layout.radii.length,
       extent: layout.extent,
-      smallestName: smallestNameSize(layout, measure, { boldWeight: FONT.bold, normalWeight: FONT.normal }),
+      smallestName: smallestNameSize(layout, measure, ro),
       coverage: coverage(layout),
       overlaps: overlaps!.pairs,
       ms,

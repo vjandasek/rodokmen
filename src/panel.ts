@@ -4,22 +4,25 @@
  * slider plus a number field; any change calls `onChange`, and `options()` and `locked`
  * return the current values. A setting that differs from its default is highlighted and gets
  * a "↺" button resetting just that setting. "Zamknout rozmístění" keeps the layout while
- * sizes change (see resize.ts) and disables the other layout settings. "Vzhled" (line widths,
+ * sizes change (see resize.ts) and disables the other layout settings. "Vzhled" (name size, line widths,
  * `appearance()`) only redraws. Nothing is stored: a reload starts from
  * the defaults below. "Kopírovat nastavení" / "Uložit jako soubor" export all values as JSON
  * (`settingsJson()`), so a view can be reported as text instead of a screenshot.
  */
 import { defaultOptions, type LayoutOptions } from './layout.ts';
 import { DEFAULT_MAX_LINE_WIDTH, DEFAULT_MIN_LINE_WIDTH } from './connectors.ts';
+import { NAME_SCALE } from './render.ts';
 
 /**
  * Render-only settings ("Vzhled", developer mode): changing them only redraws, never
- * relayouts, and they work while the layout is locked. `undefined` line widths mean the
+ * relayouts, and they work while the layout is locked. `undefined` values mean the
  * renderer's own defaults.
  */
 export interface Appearance {
   minLineWidth?: number;
   maxLineWidth?: number;
+  /** Name size multiple (render.ts `NAME_SCALE`). */
+  nameScale?: number;
 }
 
 type NumericKey =
@@ -124,6 +127,12 @@ const LINE_SPECS = {
     label: 'Nejsilnější čára', min: 5, max: 60, step: 0.5, value: DEFAULT_MAX_LINE_WIDTH,
     title: 'Šířka nejsilnějších větví (u středu, nesou nejvíc lidí)',
   },
+};
+
+/** Name size in % of the base fit (render.ts `NAME_SCALE`); at 125 % descenders touch the cell's edge. */
+const NAME_SPEC = {
+  label: 'Velikost jmen (%)', min: 100, max: 125, step: 1, value: Math.round(NAME_SCALE * 100),
+  title: 'Velikost jmen v boxech: 100 % nechá nad a pod jménem 10 % výšky buňky, víc zmenší tento okraj (boxy se nemění)',
 };
 
 const LEVEL_RANGE: Range = { min: 0.3, max: 3, step: 0.05 };
@@ -391,6 +400,7 @@ export class Panel {
   private readonly choices = new Map<ChoiceKey, ChoiceInput>();
   private readonly lock: CheckInput;
   private readonly minLine: NumberInput;
+  private readonly nameSize: NumberInput;
   private readonly maxLine: NumberInput;
   private levels: NumberInput[] = [];
   private readonly levelSection: HTMLElement;
@@ -436,6 +446,7 @@ export class Panel {
     };
     this.minLine = lineInput('minLineWidth');
     this.maxLine = lineInput('maxLineWidth');
+    this.nameSize = new NumberInput('p-nameScale', NAME_SPEC.label, NAME_SPEC.title, NAME_SPEC, NAME_SPEC.value, onChange);
 
     // Filled by setGenerations() once the data is known.
     this.levelSection = section('Měřítko generací');
@@ -467,7 +478,7 @@ export class Panel {
       section('Mezery', control('ringGap'), control('siblingGap'), control('cousinGap'),
         control('spread'), control('lean'), control('maxGap')),
       section('Partneři', control('partnerMode'), control('partnerThreshold')),
-      section('Vzhled', this.minLine.element, this.maxLine.element),
+      section('Vzhled', this.nameSize.element, this.minLine.element, this.maxLine.element),
       reset,
       exportRow,
       this.exportNote,
@@ -497,13 +508,14 @@ export class Panel {
     return o;
   }
 
-  /** The render-only settings (line widths); the normal view always gets the defaults. */
+  /** The render-only settings (name size, line widths); the normal view always gets the defaults. */
   appearance(): Appearance {
     const width = (input: NumberInput, key: keyof typeof LINE_SPECS) =>
       input.value === LINE_SPECS[key].value ? undefined : input.value;
     return {
       minLineWidth: width(this.minLine, 'minLineWidth'),
       maxLineWidth: width(this.maxLine, 'maxLineWidth'),
+      nameScale: this.nameSize.value === NAME_SPEC.value ? undefined : this.nameSize.value / 100,
     };
   }
 
@@ -522,7 +534,7 @@ export class Panel {
     for (const [key, input] of [...this.numbers, ...this.choices]) if (input.isChanged) changed.push(key);
     this.levels.forEach((input, l) => input.isChanged && changed.push(`levelScale[${l}]`));
     const look: [string, { isChanged: boolean }][] = [
-      ['locked', this.lock], ['minLineWidth', this.minLine], ['maxLineWidth', this.maxLine],
+      ['locked', this.lock], ['nameScale', this.nameSize], ['minLineWidth', this.minLine], ['maxLineWidth', this.maxLine],
     ];
     for (const [key, input] of look) if (input.isChanged) changed.push(key);
     const settings = {
@@ -530,6 +542,7 @@ export class Panel {
       exported: new Date().toISOString(),
       layout: this.options(),
       appearance: {
+        nameScale: this.nameSize.value / 100,
         minLineWidth: this.minLine.value,
         maxLineWidth: this.maxLine.value,
       },
@@ -590,7 +603,7 @@ export class Panel {
   reset() {
     const inputs = [
       ...this.numbers.values(), ...this.choices.values(), this.lock, ...this.levels,
-      this.minLine, this.maxLine,
+      this.nameSize, this.minLine, this.maxLine,
     ];
     for (const input of inputs) input.restoreDefault();
     this.sync();
