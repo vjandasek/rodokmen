@@ -128,6 +128,23 @@ describe('FamilyEditor', () => {
     expect(ed.partners(1).map((p) => p.id)).toEqual([2, 3]);
   });
 
+  it('setFamilyName trims, sits before the people, empty removes it, and is undoable', () => {
+    const ed = new FamilyEditor(family());
+    ed.setFamilyName('  Nováčkovi ');
+    expect(ed.file.familyName).toBe('Nováčkovi');
+    expect(Object.keys(ed.file)).toEqual(['version', 'rootId', 'familyName', 'people']);
+    expect(ed.dirty).toBe(true);
+    ed.setFamilyName('Svobodovi');
+    ed.setFamilyName('   ');
+    expect(Object.keys(ed.file)).toEqual(['version', 'rootId', 'people']);
+    ed.undo();
+    expect(ed.file.familyName).toBe('Svobodovi');
+    ed.undo();
+    ed.undo();
+    expect('familyName' in ed.file).toBe(false);
+    expect(ed.dirty).toBe(false);
+  });
+
   it('updatePerson trims, turns empty text into null and keeps key order', () => {
     const ed = new FamilyEditor(family());
     ed.updatePerson(5, { firstName: '  A ', lastName: '  ', bornDate: '01.02.2003', bornPlace: ' X ', living: false });

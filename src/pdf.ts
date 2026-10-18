@@ -1,6 +1,7 @@
 /**
- * PDF export ("Uložit PDF"): the tree exactly as drawn (render.ts), as a vector poster with the
- * title "Rodokmen", saved straight away as Rodokmen.pdf. Page geometry: poster.ts.
+ * PDF export ("Uložit PDF"): the tree exactly as drawn (render.ts), as a vector poster titled with
+ * the family name (else "Rodokmen"), saved straight away as "Rodokmen <family name>.pdf". Page
+ * geometry and names: poster.ts.
  *
  * The drawing's SVG is converted by svg2pdf.js into jsPDF drawing commands, with Noto Sans
  * embedded (fonts/noto-sans-400/700.ttf: the bundled WOFF2 subsets merged into TrueType by
@@ -10,7 +11,8 @@
 import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { Layout } from './layout.ts';
-import { MARGIN, TITLE_SIZE, posterPage } from './poster.ts';
+import { MARGIN, TITLE_SIZE, pdfFileName, posterPage, posterTitle } from './poster.ts';
+import { pageTitle } from './model.ts';
 import { renderScene, type RenderOptions } from './render.ts';
 import regularUrl from './fonts/noto-sans-400.ttf?url';
 import boldUrl from './fonts/noto-sans-700.ttf?url';
@@ -18,8 +20,8 @@ import boldUrl from './fonts/noto-sans-700.ttf?url';
 /** Name the fonts are registered under in jsPDF: the first family of `FONT.family`. */
 const FAMILY = 'Noto Sans';
 
-/** The poster as a PDF document (vector), for `layout` drawn with `ro`. */
-export async function posterPdf(layout: Layout, ro: RenderOptions): Promise<jsPDF> {
+/** The poster as a PDF document (vector), for `layout` drawn with `ro`, titled with `familyName`. */
+export async function posterPdf(layout: Layout, ro: RenderOptions, familyName: string | null): Promise<jsPDF> {
   const page = posterPage(layout.bounds);
   const doc = new jsPDF({
     unit: 'mm',
@@ -27,7 +29,7 @@ export async function posterPdf(layout: Layout, ro: RenderOptions): Promise<jsPD
     orientation: page.width > page.height ? 'landscape' : 'portrait',
     compress: true,
   });
-  doc.setProperties({ title: 'Rodokmen', creator: 'Rodokmen' });
+  doc.setProperties({ title: pageTitle(familyName), creator: 'Rodokmen' });
   const [regular, bold] = await Promise.all([fontData(regularUrl), fontData(boldUrl)]);
   doc.addFileToVFS('NotoSans-Regular.ttf', regular);
   doc.addFont('NotoSans-Regular.ttf', FAMILY, 'normal');
@@ -37,7 +39,7 @@ export async function posterPdf(layout: Layout, ro: RenderOptions): Promise<jsPD
   doc.setFont(FAMILY, 'bold');
   doc.setFontSize(TITLE_SIZE);
   doc.setTextColor('#1f1f1f');
-  doc.text('Rodokmen', MARGIN, MARGIN, { baseline: 'top' });
+  doc.text(posterTitle(familyName), MARGIN, MARGIN, { baseline: 'top' });
 
   // svg2pdf reads computed styles, so the SVG is in the document while it is converted.
   const b = layout.bounds;
@@ -55,9 +57,9 @@ export async function posterPdf(layout: Layout, ro: RenderOptions): Promise<jsPD
   return doc;
 }
 
-/** Builds the poster and saves it as Rodokmen.pdf. */
-export async function downloadPdf(layout: Layout, ro: RenderOptions): Promise<void> {
-  (await posterPdf(layout, ro)).save('Rodokmen.pdf');
+/** Builds the poster and saves it (`pdfFileName`). */
+export async function downloadPdf(layout: Layout, ro: RenderOptions, familyName: string | null): Promise<void> {
+  (await posterPdf(layout, ro, familyName)).save(pdfFileName(familyName));
 }
 
 /**

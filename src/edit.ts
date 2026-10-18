@@ -228,6 +228,15 @@ export class FamilyEditor {
     return [...this.person(bloodId).partners].sort((a, b) => a.order - b.order).map((r) => this.person(r.id));
   }
 
+  /** Sets the family name the tree is titled with (trimmed; empty removes it). */
+  setFamilyName(name: string | null): void {
+    const clean = optionalText(name);
+    // A new object, so the name sits before the long list of people in the saved file.
+    this.mutate(({ familyName: _, version, rootId, people, ...rest }) =>
+      clean === null ? { version, rootId, ...rest, people } : { version, rootId, familyName: clean, ...rest, people },
+    );
+  }
+
   updatePerson(id: number, details: Partial<PersonDetails>): void {
     const clean = cleanDetails(details);
     this.mutate((f) => {
@@ -355,10 +364,13 @@ export class FamilyEditor {
     return this.data.people.reduce((m, p) => Math.max(m, p.id), 0) + 1;
   }
 
-  /** Applies `change` to a copy; keeps it only when the whole file validates. */
-  private mutate(change: (f: FamilyFile) => void): void {
-    const next = structuredClone(this.data);
-    change(next);
+  /**
+   * Applies `change` to a copy (or takes the file it returns); keeps the result only when the
+   * whole file validates.
+   */
+  private mutate(change: (f: FamilyFile) => FamilyFile | void): void {
+    const copy = structuredClone(this.data);
+    const next = change(copy) ?? copy;
     validateFile(next);
     this.undoStack.push({ file: this.data, state: this.state });
     if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();

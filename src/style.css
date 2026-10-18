@@ -49,6 +49,15 @@ h1 {
   font-weight: 700;
 }
 
+/* Developer mode: a click on the title edits the family name (editor.ts). */
+h1.editable {
+  cursor: pointer;
+}
+
+h1.editable:hover {
+  text-decoration: underline dotted;
+}
+
 select,
 button,
 input[type='number'] {

@@ -31,7 +31,22 @@ export interface Person {
 export interface FamilyFile {
   version: number;
   rootId: number;
+  /** The family the tree is titled with, e.g. "Novákovi" (optional; set in edit mode). */
+  familyName?: string | null;
   people: Person[];
+}
+
+/** The app's title; "Rodokmen – <family name>" once data naming the family is loaded. */
+export const APP_TITLE = 'Rodokmen';
+
+/** The file's family name, trimmed, or null when it names none. */
+export function familyName(file: FamilyFile | null): string | null {
+  return file?.familyName?.trim() || null;
+}
+
+/** The page title (header, browser tab, PDF properties) for a family name. */
+export function pageTitle(familyName: string | null): string {
+  return familyName ? `${APP_TITLE} – ${familyName}` : APP_TITLE;
 }
 
 /** A blood-related person in the descendant tree. Partners are attached, not tree nodes. */

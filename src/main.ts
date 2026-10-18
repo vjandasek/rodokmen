@@ -1,5 +1,5 @@
 import './style.css';
-import { buildTree, walk, type FamilyFile, type TreeNode } from './model.ts';
+import { buildTree, familyName, pageTitle, walk, type FamilyFile, type TreeNode } from './model.ts';
 import { defaultOptions, layoutTree, type Bounds, type Layout } from './layout.ts';
 import { countPeople, renderScene, smallestNameSize, type Measure, type RenderOptions } from './render.ts';
 import { PanZoom } from './panzoom.ts';
@@ -23,6 +23,7 @@ const panelToggle = document.querySelector<HTMLButtonElement>('#panel-toggle')!;
 const hint = document.querySelector<HTMLElement>('#hint')!;
 const pdfButton = document.querySelector<HTMLButtonElement>('#pdf')!;
 const saveButton = document.querySelector<HTMLButtonElement>('#save-data')!;
+const heading = document.querySelector<HTMLElement>('header h1')!;
 
 /**
  * Developer mode (`?dev` in the address, read once at load): parameter panel, stats line and
@@ -244,6 +245,7 @@ async function load() {
     family = file;
     setTree(file);
     if (DEV) startEditing(file);
+    showTitle();
     message.hidden = true;
     render(true);
     if (!DEV) showHint();
@@ -252,6 +254,18 @@ async function load() {
       `Nepodařilo se načíst data rodokmenu (${(e as Error).message}).`,
     );
   }
+}
+
+/** The family name of the shown data (the edited copy in developer mode), or null. */
+function currentFamilyName(): string | null {
+  return familyName(editor?.file ?? family);
+}
+
+/** Header and browser tab: "Rodokmen", plus " – <family name>" once data naming it is loaded. */
+function showTitle() {
+  const title = pageTitle(currentFamilyName());
+  heading.textContent = title;
+  document.title = title;
 }
 
 /** Seconds the hint stays before it fades out by itself. */
@@ -364,7 +378,7 @@ pdfButton.addEventListener('click', async () => {
   pdfButton.textContent = 'Připravuji PDF…';
   try {
     const { downloadPdf } = await import('./pdf.ts');
-    await downloadPdf(drawing.layout, drawing.ro);
+    await downloadPdf(drawing.layout, drawing.ro, currentFamilyName());
   } catch (e) {
     showMessage(`PDF se nepodařilo vytvořit (${(e as Error).message}).`);
   } finally {
@@ -382,9 +396,14 @@ function startEditing(file: FamilyFile) {
     setTree(ed.file);
     solved = null;
     render(false);
+    showTitle();
     showSaveState();
   });
   ui.onLongPress = () => card.cancelTap();
+  // The title is where the family name is edited.
+  heading.classList.add('editable');
+  heading.title = 'Klepnutím změníte název rodu';
+  heading.addEventListener('click', () => ui.editFamilyName());
   saveButton.hidden = false;
   showSaveState();
 }

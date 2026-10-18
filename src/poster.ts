@@ -5,6 +5,7 @@
  * Separate from pdf.ts so it can be tested without the PDF libraries (they need a browser).
  */
 import type { Bounds } from './layout.ts';
+import { APP_TITLE } from './model.ts';
 
 /** Page width in mm (the short side of A1). */
 export const PAGE_WIDTH = 594;
@@ -13,6 +14,20 @@ export const MARGIN = 15;
 /** Title font size in pt and the band it takes above the tree, in mm. */
 export const TITLE_SIZE = 48;
 export const TITLE_BAND = 25;
+
+/** The title printed on the poster: just the family name ("Novákovi"), else "Rodokmen". */
+export function posterTitle(familyName: string | null): string {
+  return familyName ?? APP_TITLE;
+}
+
+/**
+ * The PDF's file name: "Rodokmen Novákovi.pdf", or "Rodokmen.pdf" without a family name.
+ * Characters Windows forbids in file names become spaces.
+ */
+export function pdfFileName(familyName: string | null): string {
+  const name = familyName?.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim();
+  return `${name ? `${APP_TITLE} ${name}` : APP_TITLE}.pdf`;
+}
 
 export interface PosterPage {
   /** Page size in mm. */

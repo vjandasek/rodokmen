@@ -1,6 +1,7 @@
 /**
  * Editing UI (developer mode): a context menu on a person (right click on their cell in the tree),
- * the details dialog, delete confirmations and Ctrl+Z. The data operations are in edit.ts; after
+ * the details dialog, delete confirmations, the family name dialog (main.ts opens it from the
+ * title) and Ctrl+Z. The data operations are in edit.ts; after
  * each change `changed` redraws the tree from `editor.file`.
  */
 import { EditError, isValidDate, type FamilyEditor, type PersonDetails } from './edit.ts';
@@ -202,6 +203,37 @@ export class EditorUI {
       this.editor.addChild(parent.id, d, other);
       this.changed();
     });
+  }
+
+  /** "Název rodu": the family name the title and the PDF show (empty = just "Rodokmen"). */
+  editFamilyName() {
+    this.closeMenu();
+    if (document.querySelector('dialog[open]')) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = this.editor.file.familyName ?? '';
+    input.placeholder = 'např. Novákovi';
+    const label = document.createElement('label');
+    label.className = 'field';
+    const span = document.createElement('span');
+    span.textContent = 'Název rodu';
+    label.append(span, input);
+    const fields = document.createElement('div');
+    fields.className = 'fields';
+    fields.append(label);
+    const note = document.createElement('p');
+    note.textContent = 'Zobrazí se v nadpisu („Rodokmen – …“) a v PDF. Prázdné pole = jen „Rodokmen“.';
+    const dialog = makeDialog('Název rodu', [fields, note]);
+    const form = dialog.querySelector('form')!;
+    form.append(buttons('Uložit změny', dialog));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      dialog.close();
+      const name = input.value.trim() || null;
+      if (name !== (this.editor.file.familyName?.trim() || null)) this.run(() => this.editor.setFamilyName(name));
+    });
+    dialog.showModal();
+    input.select();
   }
 
   /** Confirmation listing who will be deleted; a refusal shows its reason instead. */
