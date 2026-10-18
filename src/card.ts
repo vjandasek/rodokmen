@@ -67,6 +67,8 @@ export class PersonCardUI {
     this.rows = document.createElement('div');
     this.element.append(head, this.rows);
     this.stage.append(this.element);
+    // iOS Safari zooms the page on a pinch even with touch-action set (style.css): stop it here.
+    this.element.addEventListener('gesturestart', (e) => e.preventDefault());
 
     svg.addEventListener('pointerdown', (e) => this.onDown(e));
     svg.addEventListener('pointermove', (e) => this.onMove(e));

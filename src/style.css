@@ -288,6 +288,8 @@ body:not(.dev) #pdf {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 6px 8px 16px 20px;
+  /* Only scrolling inside the card: a pinch or double tap on it doesn't zoom the page. */
+  touch-action: pan-y;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 14px;
