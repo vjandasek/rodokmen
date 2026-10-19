@@ -4,6 +4,7 @@ import {
   EditError,
   FamilyEditor,
   isValidDate,
+  normalizeDate,
   savedFileName,
   serialize,
   UNDO_LIMIT,
@@ -98,6 +99,20 @@ describe('isValidDate', () => {
   });
 });
 
+describe('normalizeDate', () => {
+  it('pads one-digit day and month, allows spaces after the dots', () => {
+    expect(normalizeDate('14.7.1931')).toBe('14.07.1931');
+    expect(normalizeDate('14.07.1931')).toBe('14.07.1931');
+    expect(normalizeDate('1.5.1995')).toBe('01.05.1995');
+    expect(normalizeDate(' 14. 7. 1931 ')).toBe('14.07.1931');
+  });
+  it('rejects other formats and impossible dates', () => {
+    for (const d of ['29.2.2023', '31.4.2000', '0.1.2000', '1.13.2000', '01.05.95', '1-5-1995', '123.1.2000', '']) {
+      expect(normalizeDate(d), d).toBe(null);
+    }
+  });
+});
+
 describe('serialize / savedFileName', () => {
   it('writes 2-space JSON with a trailing newline', () => {
     const f = family();
@@ -147,7 +162,7 @@ describe('FamilyEditor', () => {
 
   it('updatePerson trims, turns empty text into null and keeps key order', () => {
     const ed = new FamilyEditor(family());
-    ed.updatePerson(5, { firstName: '  A ', lastName: '  ', bornDate: '01.02.2003', bornPlace: ' X ', living: false });
+    ed.updatePerson(5, { firstName: '  A ', lastName: '  ', bornDate: '1.2.2003', bornPlace: ' X ', living: false });
     const p = ed.person(5);
     expect(p.firstName).toBe('A');
     expect(p.lastName).toBeNull();
@@ -161,8 +176,8 @@ describe('FamilyEditor', () => {
   it('updatePerson refuses an empty name and invalid dates', () => {
     const ed = new FamilyEditor(family());
     expectRefused(ed, () => ed.updatePerson(5, { firstName: '   ' }), /Jméno je povinné/);
-    expectRefused(ed, () => ed.updatePerson(5, { bornDate: '29.02.2023' }), /Datum narození musí být ve tvaru dd\.mm\.rrrr/);
-    expectRefused(ed, () => ed.updatePerson(5, { deathDate: '1.1.2000' }), /Datum úmrtí/);
+    expectRefused(ed, () => ed.updatePerson(5, { bornDate: '29.02.2023' }), /Datum narození musí být ve tvaru d\.m\.rrrr/);
+    expectRefused(ed, () => ed.updatePerson(5, { deathDate: '1.1.20' }), /Datum úmrtí/);
     expectRefused(ed, () => ed.updatePerson(99, { firstName: 'A' }));
   });
 

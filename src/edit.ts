@@ -40,6 +40,17 @@ export function isValidDate(text: string): boolean {
   return d <= days;
 }
 
+/**
+ * Typed date to the stored dd.mm.yyyy form: one or two digit day and month, spaces after the dots
+ * allowed (14.7.1931, 14. 7. 1931 → 14.07.1931); null when it is not a real calendar date.
+ */
+export function normalizeDate(text: string): string | null {
+  const m = /^(\d{1,2})\. *(\d{1,2})\. *(\d{4})$/.exec(text.trim());
+  if (!m) return null;
+  const date = `${m[1].padStart(2, '0')}.${m[2].padStart(2, '0')}.${m[3]}`;
+  return isValidDate(date) ? date : null;
+}
+
 /** The file as written to disk: 2-space JSON with a trailing newline. */
 export function serialize(file: FamilyFile): string {
   return JSON.stringify(file, null, 2) + '\n';
@@ -85,7 +96,7 @@ const optionalText = (s: string | null | undefined): string | null => {
   return t === '' ? null : t;
 };
 
-const DATE_HINT = 've tvaru dd.mm.rrrr (např. 15.03.1990).';
+const DATE_HINT = 've tvaru d.m.rrrr (např. 15.3.1990).';
 
 /** Normalizes user input (trim, empty → null) and checks the name and dates. */
 function cleanDetails(details: Partial<PersonDetails>): Partial<PersonDetails> {
@@ -105,11 +116,13 @@ function cleanDetails(details: Partial<PersonDetails>): Partial<PersonDetails> {
       out[key] = optionalText(value as string | null) as never;
     }
   }
-  if (out.bornDate && !isValidDate(out.bornDate)) {
-    throw new EditError(`Datum narození musí být ${DATE_HINT}`);
+  if (out.bornDate) {
+    out.bornDate = normalizeDate(out.bornDate);
+    if (!out.bornDate) throw new EditError(`Datum narození musí být ${DATE_HINT}`);
   }
-  if (out.deathDate && !isValidDate(out.deathDate)) {
-    throw new EditError(`Datum úmrtí musí být ${DATE_HINT}`);
+  if (out.deathDate) {
+    out.deathDate = normalizeDate(out.deathDate);
+    if (!out.deathDate) throw new EditError(`Datum úmrtí musí být ${DATE_HINT}`);
   }
   return out;
 }

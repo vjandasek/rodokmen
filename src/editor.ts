@@ -4,7 +4,7 @@
  * title) and Ctrl+Z. The data operations are in edit.ts; after
  * each change `changed` redraws the tree from `editor.file`.
  */
-import { EditError, isValidDate, type FamilyEditor, type PersonDetails } from './edit.ts';
+import { EditError, normalizeDate, type FamilyEditor, type PersonDetails } from './edit.ts';
 import type { Person } from './model.ts';
 
 /** One menu item; `disabled` greys it out. */
@@ -348,7 +348,7 @@ function personDialog(title: string, initial: PersonDetails, extras: DialogExtra
     input.value = (initial[f.key] as string | null) ?? '';
     if (f.key === 'firstName') input.required = true;
     if (f.date) {
-      input.placeholder = 'dd.mm.rrrr';
+      input.placeholder = 'd.m.rrrr';
       input.inputMode = 'numeric';
     }
     inputs.set(f.key, input);
@@ -395,8 +395,8 @@ function personDialog(title: string, initial: PersonDetails, extras: DialogExtra
     const text = (key: keyof PersonDetails) => inputs.get(key)!.value.trim() || null;
     for (const f of TEXT_FIELDS.filter((f) => f.date)) {
       const value = text(f.key);
-      if (value !== null && !isValidDate(value)) {
-        showError(`${f.label}: zadejte platné datum ve tvaru dd.mm.rrrr (např. 05.03.1950).`);
+      if (value !== null && !normalizeDate(value)) {
+        showError(`${f.label}: zadejte platné datum ve tvaru d.m.rrrr (např. 5.3.1950).`);
         inputs.get(f.key)!.focus();
         return;
       }
