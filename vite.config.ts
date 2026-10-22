@@ -31,10 +31,19 @@ function familyLatest(): Plugin {
   };
 }
 
+/** Build only: drops the HTML comments (notes for developers) from the built page. */
+function stripHtmlComments(): Plugin {
+  return {
+    name: 'strip-html-comments',
+    apply: 'build',
+    transformIndexHtml: (html) => html.replace(/\s*<!--[\s\S]*?-->/g, ''),
+  };
+}
+
 export default defineConfig({
   // Relative asset paths so the build also works when opened from disk.
   base: './',
-  plugins: [familyLatest()],
+  plugins: [familyLatest(), stripHtmlComments()],
   server: {
     // The project lives on /mnt/c; WSL2 does not deliver file-change events from the
     // Windows drive, so the dev server must poll to notice edits.
