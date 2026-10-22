@@ -226,6 +226,20 @@ function setTree(file: FamilyFile) {
   maxLevel = deepest;
 }
 
+/** GoatCounter's global (public/goatcounter.js), absent when its script did not load. */
+interface GoatCounter {
+  count?: (vars: { path: string; title: string; event: boolean }) => void;
+}
+
+/** Published site: counts a visit that got past the password (an event, nothing from the data). */
+function countOpened() {
+  (window as { goatcounter?: GoatCounter }).goatcounter?.count?.({
+    path: 'rodokmen-otevren',
+    title: 'Rodokmen otevřen',
+    event: true,
+  });
+}
+
 /**
  * The family data. On the published site, the embedded encrypted data once the password fits.
  * On the Vite dev server (both modes), the newest data/family*.json (saved edits, via the dev
@@ -235,6 +249,7 @@ async function fetchFamily(): Promise<FamilyFile> {
   if (vault) {
     const file = await unlockFamily(vault, document.querySelector<HTMLFormElement>('#unlock')!);
     document.body.classList.remove('locked');
+    countOpened();
     return file;
   }
   if (import.meta.env.DEV) {
