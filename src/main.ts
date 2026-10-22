@@ -13,6 +13,7 @@ import { EditorUI } from './editor.ts';
 import { saveFamily } from './save.ts';
 import { PersonCardUI } from './card.ts';
 import { SearchBox } from './searchbox.ts';
+import { embeddedVault, unlockFamily } from './unlock.ts';
 
 const svg = document.querySelector<SVGSVGElement>('#view')!;
 const scene = svg.querySelector<SVGGElement>('#scene')!;
@@ -25,12 +26,18 @@ const pdfButton = document.querySelector<HTMLButtonElement>('#pdf')!;
 const saveButton = document.querySelector<HTMLButtonElement>('#save-data')!;
 const heading = document.querySelector<HTMLElement>('header h1')!;
 
+/** The published site's encrypted family data (unlock.ts), null in development and local builds. */
+const vault = embeddedVault();
+
 /**
  * Developer mode (`?dev` in the address, read once at load): parameter panel, stats line and
  * overlap outlines. The normal view shows just the tree, drawn with the panel's defaults
- * (the panel exists but stays hidden).
+ * (the panel exists but stays hidden). Never on the published site.
  */
-const DEV = new URLSearchParams(location.search).has('dev');
+const DEV = !vault && new URLSearchParams(location.search).has('dev');
+
+// Until the password fits there is nothing to search, zoom or print (style.css).
+if (vault) document.body.classList.add('locked');
 
 const panZoom = new PanZoom(svg);
 panZoom.setObstacle(document.querySelector<HTMLElement>('#controls')!);
@@ -220,10 +227,16 @@ function setTree(file: FamilyFile) {
 }
 
 /**
- * The family data. On the Vite dev server (both modes), the newest data/family*.json (saved
- * edits, via the dev server's /api/family-latest); otherwise, or when that fails, data/family.json.
+ * The family data. On the published site, the embedded encrypted data once the password fits.
+ * On the Vite dev server (both modes), the newest data/family*.json (saved edits, via the dev
+ * server's /api/family-latest); otherwise, or when that fails, data/family.json.
  */
 async function fetchFamily(): Promise<FamilyFile> {
+  if (vault) {
+    const file = await unlockFamily(vault, document.querySelector<HTMLFormElement>('#unlock')!);
+    document.body.classList.remove('locked');
+    return file;
+  }
   if (import.meta.env.DEV) {
     try {
       const response = await fetch('./api/family-latest');

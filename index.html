@@ -30,6 +30,16 @@
       <div class="stage">
         <svg id="view" xmlns="http://www.w3.org/2000/svg"><g id="scene"></g></svg>
         <p id="message" hidden></p>
+        <!-- Published site only (unlock.ts): the family password before the tree is shown. -->
+        <form id="unlock" hidden>
+          <p>Rodokmen je chráněný heslem. Napište heslo, které jste dostali od rodiny.</p>
+          <label for="unlock-password">Heslo</label>
+          <input id="unlock-password" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required />
+          <label class="unlock-check"><input id="unlock-show" type="checkbox" /> Zobrazit heslo</label>
+          <label class="unlock-check"><input id="unlock-remember" type="checkbox" checked /> Zapamatovat v tomto zařízení</label>
+          <button type="submit">Otevřít rodokmen</button>
+          <p id="unlock-error" role="alert" hidden></p>
+        </form>
         <!-- Normal view only: main.ts shows it once and fades it out. -->
         <p id="hint" role="status" hidden>Strom posunete tažením myší nebo prstem. <span class="hint-buttons">Přibližte tlačítky + a −.</span><span class="hint-pinch">Přibližte roztažením dvou prstů.</span> Klepnutím na osobu zobrazíte podrobnosti.</p>
         <!-- Arrow pad around "Celý strom" (fit), then + / − in a column to its right. -->

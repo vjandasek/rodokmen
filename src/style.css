@@ -720,6 +720,77 @@ main {
 }
 
 /*
+ * Published site: the password form (unlock.ts), big enough for older eyes and fingers. Until the
+ * family is unlocked there is nothing to search, zoom or print.
+ */
+#unlock {
+  position: absolute;
+  inset: 12% 16px auto;
+  margin: 0 auto;
+  max-width: 440px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 17px;
+}
+
+#unlock[hidden] {
+  display: none;
+}
+
+#unlock p {
+  margin: 0;
+}
+
+#unlock-password {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+#unlock-password:focus-visible {
+  outline: 3px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.unlock-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.unlock-check input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+
+#unlock button {
+  padding: 12px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+#unlock-error {
+  color: #c01c1c;
+  font-weight: 700;
+}
+
+body.locked #search,
+body.locked #pdf,
+body.locked #controls,
+body.locked #hint {
+  display: none;
+}
+
+/*
  * Canvas controls, bottom-right: an arrow pad around "Celý strom" (four-corners icon), and
  * + / − in a column to its right. PanZoom avoids the group's rectangle when fitting.
  */

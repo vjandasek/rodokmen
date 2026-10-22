@@ -1,8 +1,10 @@
-# Real family data — never commit
-data/
+# Real family data — never commit (no trailing slash: data may be a symlink)
+/data
 
 node_modules/
 dist/
+# The published site, built by npm run publish (encrypted data inside)
+dist-public/
 
 # Local working notes for Claude sessions — never commit
 HANDOFF.md

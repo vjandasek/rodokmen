@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "publish": "node scripts/publish.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
